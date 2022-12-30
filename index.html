@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Repalette</title>
+
+  <style>
+    canvas {
+      width: 800px;
+      aspect-ratio: 4 / 3;
+    }
+  </style>
+</head>
+
+<body>
+  <div>
+    <input type="file" name="file-input" id="file-input" hidden />
+    <label for="file-input"><canvas></canvas></label>
+  </div>
+
+  <button id="process-image" disabled>Process</button>
+</body>
+
+<script type="module" src="./repalette.js"></script>
+
+</html>
