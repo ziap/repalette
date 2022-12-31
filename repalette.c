@@ -1,6 +1,8 @@
 #include "repalette.h"
 
-void update_pixel(Image img, i32 x, i32 y, i32 *error, i32 mul, i32 div) {
+static void update_pixel(
+  Image img, i32 x, i32 y, i32 *error, i32 mul, i32 div
+) {
   if (x < 0 || x >= img.width || y < 0 || y >= img.height) return;
 
   usize idx = img.channels * (y * img.width + x);
@@ -18,14 +20,14 @@ void update_pixel(Image img, i32 x, i32 y, i32 *error, i32 mul, i32 div) {
   img.pixels[idx + 2] = b;
 }
 
-void dither_floyd_steinberg(Image img, i32 x, i32 y, i32 *error) {
+static void dither_floyd_steinberg(Image img, i32 x, i32 y, i32 *error) {
   update_pixel(img, x + 1, y + 0, error, 7, 16);
   update_pixel(img, x - 1, y + 1, error, 3, 16);
   update_pixel(img, x + 0, y + 1, error, 5, 16);
   update_pixel(img, x + 1, y + 1, error, 1, 16);
 }
 
-void dither_atkinson(Image img, i32 x, i32 y, i32 *error) {
+static void dither_atkinson(Image img, i32 x, i32 y, i32 *error) {
   update_pixel(img, x + 1, y + 0, error, 1, 8);
   update_pixel(img, x + 2, y + 0, error, 1, 8);
   update_pixel(img, x - 1, y + 1, error, 1, 8);
@@ -34,7 +36,7 @@ void dither_atkinson(Image img, i32 x, i32 y, i32 *error) {
   update_pixel(img, x + 1, y + 2, error, 1, 8);
 }
 
-void dither_jjn(Image img, i32 x, i32 y, i32 *error) {
+static void dither_jjn(Image img, i32 x, i32 y, i32 *error) {
   update_pixel(img, x + 1, y + 0, error, 7, 48);
   update_pixel(img, x + 2, y + 0, error, 5, 48);
   update_pixel(img, x - 2, y + 1, error, 3, 48);
@@ -49,7 +51,7 @@ void dither_jjn(Image img, i32 x, i32 y, i32 *error) {
   update_pixel(img, x + 2, y + 2, error, 1, 48);
 }
 
-void dither_burkes(Image img, i32 x, i32 y, i32 *error) {
+static void dither_burkes(Image img, i32 x, i32 y, i32 *error) {
   update_pixel(img, x + 1, y + 0, error, 8, 32);
   update_pixel(img, x + 2, y + 0, error, 4, 32);
   update_pixel(img, x - 2, y + 1, error, 2, 32);
