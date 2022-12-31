@@ -22,20 +22,20 @@ usize palette_size;
 export void palette_clear() { palette_size = 0; }
 
 export void palette_add(u8 red, u8 green, u8 blue) {
-  resize((palette_size + 1) * sizeof(Color16));
+  resize((palette_size + 1) * sizeof(Color));
 
-  Color16 c = {red, green, blue};
-  ((Color16 *)memory)[palette_size++] = c;
+  Color c = {red, green, blue};
+  ((Color *)memory)[palette_size++] = c;
 }
 
 export u8 *get_pixels(i32 width, i32 height) {
-  resize(4 * width * height + palette_size * sizeof(Color16));
-  return memory + palette_size * sizeof(Color16);
+  resize(4 * width * height + palette_size * sizeof(Color));
+  return memory + palette_size * sizeof(Color);
 }
 
 export void update_canvas(i32 width, i32 height) {
-  u8 *pixels = memory + palette_size * sizeof(Color16);
-  Color16 *palette = (Color16 *)memory;
+  u8 *pixels = memory + palette_size * sizeof(Color);
+  Color *palette = (Color *)memory;
 
   Image img = {pixels, width, height, 4};
 

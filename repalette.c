@@ -61,18 +61,18 @@ static void dither_burkes(Image img, i32 x, i32 y, i32 *error) {
   update_pixel(img, x + 2, y + 1, error, 2, 32);
 }
 
-void recolor(Image img, Color16 *palette, usize palette_size, Ditherer dither) {
+void recolor(Image img, Color *palette, usize palette_size, Ditherer dither) {
   for (i32 y = 0; y < img.height; ++y) {
     for (i32 x = 0; x < img.width; ++x) {
       const usize idx = (img.channels * (y * img.width + x));
 
-      Color16 old_color = {
+      Color old_color = {
         img.pixels[idx], img.pixels[idx + 1], img.pixels[idx + 2]};
       i32 error[3];
 
       i32 min_diff = -1;
 
-      for (Color16 *color = palette; color != palette + palette_size; ++color) {
+      for (Color *color = palette; color != palette + palette_size; ++color) {
         i32 dr = old_color.r - color->r;
         i32 dg = old_color.g - color->g;
         i32 db = old_color.b - color->b;

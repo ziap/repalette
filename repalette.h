@@ -17,7 +17,7 @@ typedef struct {
   i16 r;
   i16 g;
   i16 b;
-} Color16;
+} Color;
 
 typedef struct {
   u8* pixels;
@@ -28,6 +28,6 @@ typedef struct {
 
 typedef enum { none, floyd_steinberg, atkinson, jjn, burkes } Ditherer;
 
-extern void recolor(Image, Color16*, usize, Ditherer);
+extern void recolor(Image, Color*, usize, Ditherer);
 
 #endif
