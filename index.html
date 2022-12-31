@@ -6,22 +6,26 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Repalette</title>
+  <link rel="stylesheet" href="styles.css">
 
-  <style>
-    canvas {
-      width: 800px;
-      aspect-ratio: 4 / 3;
-    }
-  </style>
 </head>
 
 <body>
-  <div>
-    <input type="file" name="file-input" id="file-input" hidden />
-    <label for="file-input"><canvas></canvas></label>
-  </div>
+  <div class="container">
+    <div class="canvas-container">
+      <input type="file" name="file-input" id="file-input" hidden />
+      <label for="file-input"><canvas></canvas></label>
+    </div>
 
-  <button id="process-image" disabled>Process</button>
+    <div class="controls">
+      <div class="palette-outer">
+        <div id="palette">
+          <button class="color" id="color-new">+</button>
+        </div>
+      </div>
+      <button id="process-image" disabled>Process</button>
+    </div>
+  </div>
 </body>
 
 <script type="module" src="./repalette.js"></script>

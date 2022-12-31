@@ -1,5 +1,7 @@
 const fileInput = document.querySelector('#file-input')
 const processButton = document.querySelector('#process-image')
+const paletteContainer = document.querySelector('#palette')
+const paletteAdd = document.querySelector('#color-new')
 const canvas = document.querySelector('canvas')
 const ctx = canvas.getContext('2d')
 
@@ -56,7 +58,6 @@ document.addEventListener('paste', e => {
 
 const wasm = await WebAssembly.instantiateStreaming(fetch("./repalette.wasm"))
 const { exports } = wasm.instance
-console.log(exports)
 
 const palette = [
   "#2E3440",
@@ -77,6 +78,14 @@ const palette = [
   "#B48EAD"
 ]
 
+for (let i = 0; i < palette.length; ++i) {
+  const color = document.createElement('div')
+  color.classList.add('color')
+  color.style.background = palette[i]
+
+  paletteContainer.insertBefore(color, paletteAdd)
+}
+
 processButton.addEventListener('click', () => {
   exports.palette_clear()
   for (const color of palette) {
@@ -88,13 +97,11 @@ processButton.addEventListener('click', () => {
   const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
   const ptr = exports.get_pixels(canvas.width, canvas.height)
-  console.log(ptr)
   const len = 4 * canvas.width * canvas.height
   const buf = new Uint8ClampedArray(exports.memory.buffer, ptr, len)
-  buf.set(data)
-
   const imgdata = new ImageData(buf, canvas.width)
 
+  buf.set(data)
   exports.update_canvas(canvas.width, canvas.height)
   ctx.putImageData(imgdata, 0, 0)
 })
