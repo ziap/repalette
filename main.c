@@ -145,6 +145,7 @@ int main(int argc, char** argv) {
     printf("OPTIONS:\n");
     printf("  -p, --palette [,COLOR,COLOR...]\n");
     printf("  -d, --dither  {floyd-steinberg|atkinson|jjn|burkes}\n");
+    if (opt.palette) free(opt.palette);
     return 1;
   }
 
@@ -158,6 +159,7 @@ int main(int argc, char** argv) {
       stderr, "ERROR: Can't load image %s: %s\n", opt.input_file,
       strerror(errno)
     );
+    free(opt.palette);
     return errno;
   }
 
@@ -172,6 +174,8 @@ int main(int argc, char** argv) {
       stderr, "ERROR: Failed to write image %s: %s\n", opt.output_file,
       strerror(errno)
     );
+    free(opt.palette);
+    free(img.pixels);
     return errno;
   }
 
