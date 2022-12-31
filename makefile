@@ -1,6 +1,6 @@
 CC=clang
 FLAGS=-march=native -mtune=native -Wall -Wextra
-NATIVE_FLAGS=-O2 -lm
+NATIVE_FLAGS=-O3 -lm
 WASM_FLAGS=--target=wasm32 -O3 -flto -fno-builtin -nostdlib \
 	-fvisibility=hidden -Wl,--no-entry, -Wl,--strip-all, -Wl,-lto-O3 \
 	-Wl,--allow-undefined -Wl,--export-dynamic

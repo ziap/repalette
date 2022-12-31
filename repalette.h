@@ -14,11 +14,20 @@ typedef __UINT64_TYPE__ u64;
 typedef __SIZE_TYPE__ usize;
 
 typedef struct {
-  i16 red;
-  i16 green;
-  i16 blue;
+  i16 r;
+  i16 g;
+  i16 b;
 } Color16;
 
-extern void recolor(u8 *, usize, usize, Color16 *, usize, usize);
+typedef struct {
+  u8* pixels;
+  i32 width;
+  i32 height;
+  i32 channels;
+} Image;
+
+typedef enum { none, floyd_steinberg, atkinson, jjn, burkes } Ditherer;
+
+extern void recolor(Image, Color16*, usize, Ditherer);
 
 #endif
