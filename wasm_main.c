@@ -41,5 +41,5 @@ export void update_canvas(i32 width, i32 height) {
 
   Image img = {pixels, width, height, 4};
 
-  recolor(img, palette, palette_size, burkes);
+  recolor(img, palette, palette_size, floyd_steinberg);
 }

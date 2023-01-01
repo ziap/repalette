@@ -102,7 +102,7 @@ fetch('https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json').
 
   const themes = data.themes.map(x => ({
     name: x.name,
-    palette: new Set(Object.values(x).slice(1))
+    palette: new Set(Object.values(x).filter(x => /^#[0-9A-Fa-f]{6}$/i.test(x)))
   }))
 
   const paletteSelector = document.querySelector('#palette-selection')
