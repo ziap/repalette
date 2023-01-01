@@ -81,7 +81,43 @@ canvas {
   position: relative;
   cursor: pointer;
   aspect-ratio: 4 / 3;
+  border: solid #eee 1px;
   border-radius: .15vmax;
+}
+
+.color-input {
+  opacity: 0;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.color-remove {
+  display: none;
+  background: #f02d2d;
+  color: #ffffff;
+  position: absolute;
+  top: -7.5px;
+  right: -7.5px;
+  width: 15px;
+  height: 15px;
+  border: none;
+  border-radius: 100vmax;
+}
+
+.color-remove:hover {
+  background: #bc2323;
+}
+
+.color:hover {
+  border: solid #fff 1px;
+}
+
+.color:hover>.color-remove {
+  display: grid;
+  place-items: center;
+  cursor: pointer;
 }
 
 #color-new {

@@ -31,7 +31,7 @@ ctx.textAlign = 'center'
 ctx.fillStyle = '#ccc'
 ctx.fillText('Paste image or click to upload', canvas.width / 2, canvas.height / 2)
 
-fileInput.addEventListener('change', e => {
+fileInput.addEventListener('input', e => {
   const reader = new FileReader()
   reader.addEventListener('load', event => {
     const img = new Image()
@@ -56,41 +56,35 @@ document.addEventListener('paste', e => {
   }
 })
 
-const wasm = await WebAssembly.instantiateStreaming(fetch("./repalette.wasm"))
-const { exports } = wasm.instance
-
-const palette = [
-  "#2E3440",
-  "#3B4252",
-  "#434C5E",
-  "#4C566A",
-  "#D8DEE9",
-  "#E5E9F0",
-  "#ECEFF4",
-  "#8FBCBB",
-  "#88C0D0",
-  "#81A1C1",
-  "#5E81AC",
-  "#BF616A",
-  "#D08770",
-  "#EBCB8B",
-  "#A3BE8C",
-  "#B48EAD"
-]
-
-for (let i = 0; i < palette.length; ++i) {
-  const color = document.createElement('div')
+function addColor(hex) {
+  const color = document.createElement('label')
   color.classList.add('color')
-  color.style.background = palette[i]
+  color.style.background = hex;
 
+  const colorInp = document.createElement('input')
+  colorInp.classList.add('color-input')
+  colorInp.type = 'color'
+  colorInp.addEventListener('change', e => color.style.background = e.target.value)
+
+  const colorRemove = document.createElement('button')
+  colorRemove.textContent = "\u00D7"
+  colorRemove.classList.add('color-remove')
+  colorRemove.addEventListener('click', () => color.remove())
+
+  color.appendChild(colorInp)
+  color.appendChild(colorRemove)
   paletteContainer.insertBefore(color, paletteAdd)
 }
 
+paletteAdd.addEventListener('click', () => addColor('#000000'))
+
+const wasm = await WebAssembly.instantiateStreaming(fetch("./repalette.wasm"))
+const { exports } = wasm.instance
+
 processButton.addEventListener('click', () => {
   exports.palette_clear()
-  for (const color of palette) {
-    const [r, g, b] = to_rgb(color)
-
+  for (const color of document.querySelectorAll('.color-input')) {
+    const [r, g, b] = to_rgb(color.value)
     exports.palette_add(r, g, b)
   }
 

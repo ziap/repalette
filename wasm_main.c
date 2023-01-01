@@ -34,6 +34,8 @@ export u8 *get_pixels(i32 width, i32 height) {
 }
 
 export void update_canvas(i32 width, i32 height) {
+  if (palette_size == 0) return;
+
   u8 *pixels = memory + palette_size * sizeof(Color);
   Color *palette = (Color *)memory;
 
