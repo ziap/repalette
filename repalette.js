@@ -1,9 +1,6 @@
-const fileInput = document.querySelector('#file-input')
-const processButton = document.querySelector('#process-image')
-const paletteContainer = document.querySelector('#palette')
-const paletteAdd = document.querySelector('#color-new')
 const canvas = document.querySelector('canvas')
 const ctx = canvas.getContext('2d')
+const processButton = document.querySelector('#process-image')
 
 function displayImage(image) {
   canvas.width = image.width
@@ -31,7 +28,7 @@ ctx.textAlign = 'center'
 ctx.fillStyle = '#ccc'
 ctx.fillText('Paste image or click to upload', canvas.width / 2, canvas.height / 2)
 
-fileInput.addEventListener('input', e => {
+document.querySelector('#file-input').addEventListener('input', e => {
   const reader = new FileReader()
   reader.addEventListener('load', event => {
     const img = new Image()
@@ -50,11 +47,15 @@ document.addEventListener('paste', e => {
       const img = new Image()
       img.addEventListener('load', () => displayImage(img))
       img.src = event.target.result
+
     })
     reader.readAsDataURL(file)
     break
   }
 })
+
+const paletteContainer = document.querySelector('#palette')
+const paletteAdd = document.querySelector('#color-new')
 
 function addColor(hex) {
   const color = document.createElement('label')
@@ -64,6 +65,7 @@ function addColor(hex) {
   const colorInp = document.createElement('input')
   colorInp.classList.add('color-input')
   colorInp.type = 'color'
+  colorInp.value = hex
   colorInp.addEventListener('change', e => color.style.background = e.target.value)
 
   const colorRemove = document.createElement('button')
@@ -78,24 +80,74 @@ function addColor(hex) {
 
 paletteAdd.addEventListener('click', () => addColor('#000000'))
 
-const wasm = await WebAssembly.instantiateStreaming(fetch("./repalette.wasm"))
-const { exports } = wasm.instance
+const paletteExport = document.querySelector('#palette-export')
 
-processButton.addEventListener('click', () => {
-  exports.palette_clear()
+paletteExport.addEventListener('focus', e => {
+  e.target.value = ''
   for (const color of document.querySelectorAll('.color-input')) {
-    const [r, g, b] = to_rgb(color.value)
-    exports.palette_add(r, g, b)
+    e.target.value += color.value + '\n'
+  }
+})
+
+paletteExport.addEventListener('blur', e => {
+  for (const color of document.querySelectorAll('.color')) color.remove()
+
+  for (const line of e.target.value.split('\n')) {
+    if (/^#[0-9A-Fa-f]{6}$/i.test(line)) addColor(line)
+  }
+})
+
+fetch('https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json').then(async response => {
+  const data = await response.json()
+
+  const themes = data.themes.map(x => ({
+    name: x.name,
+    palette: new Set(Object.values(x).slice(1))
+  }))
+
+  const paletteSelector = document.querySelector('#palette-selection')
+  paletteSelector.querySelector('option').textContent = 'Select palette'
+
+  for (let i = 0; i < themes.length; ++i) {
+    const option = document.createElement('option')
+    option.value = i
+    option.textContent = themes[i].name
+
+    paletteSelector.appendChild(option)
   }
 
-  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  paletteSelector.addEventListener('change', e => {
+    if (e.value == "-1") return
 
-  const ptr = exports.get_pixels(canvas.width, canvas.height)
-  const len = 4 * canvas.width * canvas.height
-  const buf = new Uint8ClampedArray(exports.memory.buffer, ptr, len)
-  const imgdata = new ImageData(buf, canvas.width)
+    for (const color of document.querySelectorAll('.color')) color.remove()
 
-  buf.set(data)
-  exports.update_canvas(canvas.width, canvas.height)
-  ctx.putImageData(imgdata, 0, 0)
+    for (const color of themes[e.target.value].palette) addColor(color)
+  })
+}).catch(() => {
+  const paletteSelector = document.querySelector('#palette-selection')
+  const option = paletteSelector.querySelector('option')
+  option.textContent = 'ERROR: Failed to fetch colors from Gosh'
+})
+
+WebAssembly.instantiateStreaming(fetch("./repalette.wasm")).then(wasm => {
+  const { exports } = wasm.instance
+
+  processButton.addEventListener('click', () => {
+    exports.palette_clear()
+    for (const color of document.querySelectorAll('.color-input')) {
+      const [r, g, b] = to_rgb(color.value)
+      exports.palette_add(r, g, b)
+    }
+
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+
+    const ptr = exports.get_pixels(canvas.width, canvas.height)
+    const len = 4 * canvas.width * canvas.height
+    const buf = new Uint8ClampedArray(exports.memory.buffer, ptr, len)
+    const imgdata = new ImageData(buf, canvas.width)
+
+    buf.set(data)
+    exports.update_canvas(canvas.width, canvas.height)
+    ctx.putImageData(imgdata, 0, 0)
+  })
 })

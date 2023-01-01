@@ -41,6 +41,17 @@ canvas {
   border: solid #eee 1px;
 }
 
+.palette-controls {
+  margin: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+#palette-selection {
+  flex-grow: 1;
+  overflow-x: hidden;
+}
+
 .palette-outer {
   flex-grow: 1;
   margin: 10px;
@@ -52,6 +63,13 @@ canvas {
   grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
   gap: 10px;
   grid-auto-flow: dense;
+}
+
+.input {
+  padding: .675em 1.5em;
+  border: none;
+  border-radius: .25em;
+  cursor: pointer;
 }
 
 #process-image {
@@ -110,10 +128,6 @@ canvas {
   background: #bc2323;
 }
 
-.color:hover {
-  border: solid #fff 1px;
-}
-
 .color:hover>.color-remove {
   display: grid;
   place-items: center;
@@ -121,13 +135,39 @@ canvas {
 }
 
 #color-new {
-  background: #eee;
+  position: relative;
+  cursor: pointer;
+  aspect-ratio: 4 / 3;
+  border: solid #eee 1px;
+  border-radius: .15vmax;
   display: grid;
   place-items: center;
   font-size: 1.5rem;
   border: none;
 }
 
-#color-new:hover {
-  background: #e1e1e1;
+.palette-export-container {
+  position: relative;
+  cursor: pointer;
+}
+
+.palette-export-container>button {
+  pointer-events: none;
+}
+
+#palette-export {
+  opacity: 0;
+  height: 0;
+  z-index: 1;
+  resize: none;
+  position: absolute;
+  left: 0;
+  top: 125%;
+  width: 100%;
+  transition: height 0.2s ease-in-out;
+}
+
+#palette-export:focus {
+  opacity: 100;
+  height: unset;
 }

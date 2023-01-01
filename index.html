@@ -5,6 +5,8 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Recolor images to a certain color palette">
+  <meta name="color-scheme" content="dark light">
   <title>Repalette</title>
   <link rel="stylesheet" href="styles.css">
 
@@ -20,12 +22,22 @@
     </div>
 
     <div class="controls">
+      <div class="palette-controls">
+        <select class="input" id="palette-selection">
+          <option value="-1" disabled selected>Loading...</option>
+        </select>
+
+        <label class="palette-export-container">
+          <textarea id="palette-export" cols="7" rows="10"></textarea>
+          <button class="input">Import/Export</button>
+        </label>
+      </div>
       <div class="palette-outer">
         <div id="palette">
-          <button class="color" id="color-new">+</button>
+          <button id="color-new">+</button>
         </div>
       </div>
-      <button id="process-image" disabled>Process</button>
+      <button class="input" id="process-image" disabled>Process</button>
     </div>
   </div>
 </body>
