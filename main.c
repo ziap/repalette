@@ -86,9 +86,24 @@ int parse_palette(const char* param, Color** palette, usize* palette_size) {
 }
 
 int parse_arguments(int argc, char** argv, Options* opt) {
-  if (argc < 3) {
-    fprintf(stderr, "ERROR: Not enough arguments\n");
-    return 1;
+  if (argc > 1) {
+    if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+      printf("USAGE:\n");
+      printf("  %s -h | --help\n", argv[0]);
+      printf("  %s <input file> <output file> [options]\n", argv[0]);
+      printf("\n");
+      printf("OPTIONS:\n");
+      printf("  -p, --palette COLOR[,COLOR...]\n");
+      printf("  -d, --dither  floyd-steinberg | atkinson | jjn | burkes\n");
+      return 1;
+    }
+  } else {
+    fprintf(stderr, "ERROR: input file not provided\n");
+    return -1;
+  }
+  if (argc <= 2) {
+    fprintf(stderr, "ERROR: output file not provided\n");
+    return -1;
   }
 
   opt->input_file = argv[1];
@@ -102,10 +117,10 @@ int parse_arguments(int argc, char** argv, Options* opt) {
         fprintf(
           stderr, "ERROR: parameter required for argument \"%s\"\n", argv[i]
         );
-        return 1;
+        return -1;
       }
 
-      if (parse_dither(argv[i + 1], &opt->dither)) return 1;
+      if (parse_dither(argv[i + 1], &opt->dither)) return -1;
 
       continue;
     }
@@ -114,15 +129,15 @@ int parse_arguments(int argc, char** argv, Options* opt) {
         fprintf(
           stderr, "ERROR: parameter required for argument \"%s\"\n", argv[i]
         );
-        return 1;
+        return -1;
       }
 
       if (parse_palette(argv[i + 1], &opt->palette, &opt->palette_size))
-        return 1;
+        return -1;
       continue;
     }
     fprintf(stderr, "ERROR: Unknown argument \"%s\"\n", argv[i]);
-    return 1;
+    return -1;
   }
 
   if (opt->palette_size == 0) {
@@ -140,13 +155,10 @@ int parse_arguments(int argc, char** argv, Options* opt) {
 int main(int argc, char** argv) {
   Options opt;
 
-  if (parse_arguments(argc, argv, &opt)) {
-    printf("\nUSAGE:  %s <input file> <output file> [options]\n\n", argv[0]);
-    printf("OPTIONS:\n");
-    printf("  -p, --palette [,COLOR,COLOR...]\n");
-    printf("  -d, --dither  {floyd-steinberg|atkinson|jjn|burkes}\n");
+  int status = parse_arguments(argc, argv, &opt);
+  if (status != 0) {
     if (opt.palette) free(opt.palette);
-    return 1;
+    return status < 0;
   }
 
   Image img;
