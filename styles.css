@@ -2,6 +2,11 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-family: sans-serif;
+}
+
+textarea {
+  font-family: monospace;
 }
 
 .canvas-container {
@@ -41,19 +46,19 @@ canvas {
 }
 
 .palette-controls {
-  margin: 10px 0px;
+  margin: 10px 0;
   display: flex;
   gap: 10px;
 }
 
-#palette-selection {
+#palette-select {
   flex-grow: 1;
   overflow-x: hidden;
 }
 
 .palette-outer {
   flex-grow: 1;
-  margin: 10px 0px;
+  margin: 10px 0;
 }
 
 #palette {
@@ -75,7 +80,7 @@ canvas {
   color: #fff;
   background: #137cc1;
   font-size: 1.1rem;
-  margin: 10px 0px;
+  margin: 10px 0;
   padding: .675em 1.5em;
   border: none;
   border-radius: .25em;
@@ -169,4 +174,15 @@ canvas {
 #palette-export:focus {
   opacity: 100;
   height: unset;
+}
+
+.dither-control {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.label {
+  padding: .675em 0;
 }

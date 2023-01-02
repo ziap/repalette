@@ -20,10 +20,7 @@ function to_rgb(hex) {
   ]
 }
 
-canvas.width = 800
-canvas.height = 600
-
-ctx.font = 'lighter 32px sans-serif'
+ctx.font = 'lighter 84px sans-serif'
 ctx.textAlign = 'center'
 ctx.fillStyle = '#ccc'
 ctx.fillText('Paste image or click to upload', canvas.width / 2, canvas.height / 2)
@@ -105,7 +102,7 @@ fetch('https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json').
     palette: new Set(Object.values(x).filter(x => /^#[0-9A-Fa-f]{6}$/i.test(x)))
   }))
 
-  const paletteSelector = document.querySelector('#palette-selection')
+  const paletteSelector = document.querySelector('#palette-select')
   paletteSelector.querySelector('option').textContent = 'Select palette'
 
   for (let i = 0; i < themes.length; ++i) {
@@ -124,13 +121,15 @@ fetch('https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json').
     for (const color of themes[e.target.value].palette) addColor(color)
   })
 }).catch(() => {
-  const paletteSelector = document.querySelector('#palette-selection')
+  const paletteSelector = document.querySelector('#palette-select')
   const option = paletteSelector.querySelector('option')
   option.textContent = 'ERROR: Failed to fetch colors from Gosh'
 })
 
 WebAssembly.instantiateStreaming(fetch("./repalette.wasm")).then(wasm => {
   const { exports } = wasm.instance
+
+  const ditherSelect = document.querySelector('#dither-select')
 
   processButton.addEventListener('click', () => {
     exports.palette_clear()
@@ -147,7 +146,7 @@ WebAssembly.instantiateStreaming(fetch("./repalette.wasm")).then(wasm => {
     const imgdata = new ImageData(buf, canvas.width)
 
     buf.set(data)
-    exports.update_canvas(canvas.width, canvas.height)
+    exports.update_canvas(canvas.width, canvas.height, ditherSelect.value)
     ctx.putImageData(imgdata, 0, 0)
   })
 })

@@ -51,6 +51,14 @@ int parse_dither(const char* param, Ditherer* dither) {
     *dither = burkes;
     return 0;
   }
+  if (strcmp(param, "sierra") == 0) {
+    *dither = sierra;
+    return 0;
+  }
+  if (strcmp(param, "sierra-lite") == 0) {
+    *dither = sierra_lite;
+    return 0;
+  }
   fprintf(stderr, "ERROR: Unknown dithering strategy \"%s\"\n", param);
   return 1;
 }
@@ -94,7 +102,10 @@ int parse_arguments(int argc, char** argv, Options* opt) {
       printf("\n");
       printf("OPTIONS:\n");
       printf("  -p, --palette COLOR[,COLOR...]\n");
-      printf("  -d, --dither  floyd-steinberg | atkinson | jjn | burkes\n");
+      printf(
+        "  -d, --dither  floyd-steinberg | atkinson | jjn | burkes | sierra | "
+        "sierra-lite\n"
+      );
       return 1;
     }
   } else {

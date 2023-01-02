@@ -26,7 +26,15 @@ typedef struct {
   i32 channels;
 } Image;
 
-typedef enum { none, floyd_steinberg, atkinson, jjn, burkes } Ditherer;
+typedef enum {
+  none,
+  floyd_steinberg,
+  atkinson,
+  jjn,
+  burkes,
+  sierra,
+  sierra_lite
+} Ditherer;
 
 extern void recolor(Image, Color*, usize, Ditherer);
 

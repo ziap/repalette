@@ -17,13 +17,13 @@
     <div class="canvas-container">
       <label>
         <input type="file" id="file-input" hidden>
-        <canvas></canvas>
+        <canvas width="1920" height="1440"></canvas>
       </label>
     </div>
 
     <div class="controls">
       <div class="palette-controls">
-        <select class="input" id="palette-selection">
+        <select class="input" id="palette-select">
           <option value="-1" disabled selected>Loading...</option>
         </select>
 
@@ -32,11 +32,29 @@
           <button class="input">Import/Export</button>
         </label>
       </div>
+
       <div class="palette-outer">
         <div id="palette">
           <button id="color-new">+</button>
         </div>
       </div>
+
+      <div class="dither-control">
+        <span class="label">
+          Dither strategy
+        </span>
+
+        <select id="dither-select" class="input">
+          <option value="0">None</option>
+          <option value="1" selected>Floyd-steinberg</option>
+          <option value="2">Atkinson</option>
+          <option value="3">Jarvis, Judice, and Ninke</option>
+          <option value="4">Burkes</option>
+          <option value="5">Sierra</option>
+          <option value="6">Sierra Lite</option>
+        </select>
+      </div>
+
       <button class="input" id="process-image" disabled>Process</button>
     </div>
   </div>

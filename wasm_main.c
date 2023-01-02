@@ -33,7 +33,7 @@ export u8 *get_pixels(i32 width, i32 height) {
   return memory + palette_size * sizeof(Color);
 }
 
-export void update_canvas(i32 width, i32 height) {
+export void update_canvas(i32 width, i32 height, Ditherer ditherer) {
   if (palette_size == 0) return;
 
   u8 *pixels = memory + palette_size * sizeof(Color);
@@ -41,5 +41,5 @@ export void update_canvas(i32 width, i32 height) {
 
   Image img = {pixels, width, height, 4};
 
-  recolor(img, palette, palette_size, floyd_steinberg);
+  recolor(img, palette, palette_size, ditherer);
 }

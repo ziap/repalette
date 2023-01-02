@@ -61,6 +61,25 @@ static void dither_burkes(Image img, i32 x, i32 y, i32 *error) {
   update_pixel(img, x + 2, y + 1, error, 2, 32);
 }
 
+static void dither_sierra(Image img, i32 x, i32 y, i32 *error) {
+  update_pixel(img, x + 1, y + 0, error, 5, 32);
+  update_pixel(img, x + 2, y + 0, error, 3, 32);
+  update_pixel(img, x - 2, y + 1, error, 2, 32);
+  update_pixel(img, x - 1, y + 1, error, 4, 32);
+  update_pixel(img, x + 0, y + 1, error, 5, 32);
+  update_pixel(img, x + 1, y + 1, error, 4, 32);
+  update_pixel(img, x + 2, y + 1, error, 2, 32);
+  update_pixel(img, x - 1, y + 2, error, 2, 32);
+  update_pixel(img, x + 0, y + 2, error, 3, 32);
+  update_pixel(img, x + 1, y + 2, error, 2, 32);
+}
+
+static void dither_sierra_lite(Image img, i32 x, i32 y, i32 *error) {
+  update_pixel(img, x + 1, y + 0, error, 2, 4);
+  update_pixel(img, x - 1, y + 1, error, 1, 4);
+  update_pixel(img, x + 0, y + 1, error, 1, 4);
+}
+
 void recolor(Image img, Color *palette, usize palette_size, Ditherer dither) {
   for (i32 y = 0; y < img.height; ++y) {
     for (i32 x = 0; x < img.width; ++x) {
@@ -96,6 +115,8 @@ void recolor(Image img, Color *palette, usize palette_size, Ditherer dither) {
         case atkinson: dither_atkinson(img, x, y, error); break;
         case jjn: dither_jjn(img, x, y, error); break;
         case burkes: dither_burkes(img, x, y, error); break;
+        case sierra: dither_sierra(img, x, y, error); break;
+        case sierra_lite: dither_sierra_lite(img, x, y, error); break;
       }
     }
   }
