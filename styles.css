@@ -38,11 +38,10 @@ canvas {
   flex-direction: column;
   margin: 0 auto;
   gap: 10px;
-  border: solid #eee 1px;
 }
 
 .palette-controls {
-  margin: 10px;
+  margin: 10px 0px;
   display: flex;
   gap: 10px;
 }
@@ -54,7 +53,7 @@ canvas {
 
 .palette-outer {
   flex-grow: 1;
-  margin: 10px;
+  margin: 10px 0px;
 }
 
 #palette {
@@ -76,7 +75,7 @@ canvas {
   color: #fff;
   background: #137cc1;
   font-size: 1.1rem;
-  margin: 10px;
+  margin: 10px 0px;
   padding: .675em 1.5em;
   border: none;
   border-radius: .25em;
