@@ -2,12 +2,15 @@ const canvas = document.querySelector('canvas')
 const ctx = canvas.getContext('2d')
 const processButton = document.querySelector('#process-image')
 
+let processed = false
 function displayImage(image) {
   canvas.width = image.width
   canvas.height = image.height
 
   canvas.style.aspectRatio = image.width + '/' + image.height
   ctx.drawImage(image, 0, 0)
+  processed = false
+  processButton.textContent = 'Process'
   processButton.disabled = false
 }
 
@@ -132,21 +135,34 @@ WebAssembly.instantiateStreaming(fetch("./repalette.wasm")).then(wasm => {
   const ditherSelect = document.querySelector('#dither-select')
 
   processButton.addEventListener('click', () => {
-    exports.palette_clear()
-    for (const color of document.querySelectorAll('.color-input')) {
-      const [r, g, b] = to_rgb(color.value)
-      exports.palette_add(r, g, b)
+    if (processed) {
+      canvas.toBlob(blob => {
+        const saver = document.createElement('a')
+        const blobURL = (saver.href = URL.createObjectURL(blob))
+        saver.download = 'processed'
+        saver.click()
+        URL.revokeObjectURL(blobURL)
+      }, 'image/png')
+    } else {
+      exports.palette_clear()
+      for (const color of document.querySelectorAll('.color-input')) {
+        const [r, g, b] = to_rgb(color.value)
+        exports.palette_add(r, g, b)
+      }
+
+      const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+
+      const ptr = exports.get_pixels(canvas.width, canvas.height)
+      const len = 4 * canvas.width * canvas.height
+      const buf = new Uint8ClampedArray(exports.memory.buffer, ptr, len)
+      const imgdata = new ImageData(buf, canvas.width)
+
+      buf.set(data)
+      exports.update_canvas(canvas.width, canvas.height, ditherSelect.value)
+      ctx.putImageData(imgdata, 0, 0)
+
+      processButton.textContent = 'Download'
+      processed = true
     }
-
-    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
-
-    const ptr = exports.get_pixels(canvas.width, canvas.height)
-    const len = 4 * canvas.width * canvas.height
-    const buf = new Uint8ClampedArray(exports.memory.buffer, ptr, len)
-    const imgdata = new ImageData(buf, canvas.width)
-
-    buf.set(data)
-    exports.update_canvas(canvas.width, canvas.height, ditherSelect.value)
-    ctx.putImageData(imgdata, 0, 0)
   })
 })
