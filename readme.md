@@ -26,13 +26,13 @@ utility and a web application.
 
 | Dithering algorithm       | Mean (s) | %slower |
 | ------------------------- | -------- | ------- |
-| No dithering              | 2.398    | 0       |
-| Floyd-Steinberg           | 3.831    | 60      |
-| Atkinson                  | 3.746    | 56      |
-| Jarvis, Judice, and Ninke | 4.892    | 104     |
-| Burkes                    | 4.091    | 70      |
-| Sierra                    | 4.566    | 90      |
-| Sierra lite               | 3.683    | 53      |
+| No dithering              | 2.001    | 0       |
+| Floyd-Steinberg           | 3.514    | 75      |
+| Atkinson                  | 3.489    | 74      |
+| Jarvis, Judice, and Ninke | 4.367    | 118     |
+| Burkes                    | 3.891    | 94      |
+| Sierra                    | 4.337    | 116     |
+| Sierra lite               | 3.191    | 59      |
 
 To run the benchmark yourself:
 

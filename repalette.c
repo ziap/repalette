@@ -1,15 +1,12 @@
 #include "repalette.h"
 
-static void update_pixel(
-  Image img, i32 x, i32 y, i32 *error, i32 mul, i32 div
-) {
+static void update_pixel(Image img, i32 x, i32 y, Color err, i32 mul, i32 div) {
   if (x < 0 || x >= img.width || y < 0 || y >= img.height) return;
-
   usize idx = img.channels * (y * img.width + x);
 
-  i32 r = img.pixels[idx + 0] + error[0] * mul / div;
-  i32 g = img.pixels[idx + 1] + error[1] * mul / div;
-  i32 b = img.pixels[idx + 2] + error[2] * mul / div;
+  i32 r = img.pixels[idx + 0] + err.r * mul / div;
+  i32 g = img.pixels[idx + 1] + err.g * mul / div;
+  i32 b = img.pixels[idx + 2] + err.b * mul / div;
 
   r = r < 0 ? 0 : (r > 255 ? 255 : r);
   g = g < 0 ? 0 : (g > 255 ? 255 : g);
@@ -20,64 +17,64 @@ static void update_pixel(
   img.pixels[idx + 2] = b;
 }
 
-static void dither_floyd_steinberg(Image img, i32 x, i32 y, i32 *error) {
-  update_pixel(img, x + 1, y + 0, error, 7, 16);
-  update_pixel(img, x - 1, y + 1, error, 3, 16);
-  update_pixel(img, x + 0, y + 1, error, 5, 16);
-  update_pixel(img, x + 1, y + 1, error, 1, 16);
+static void dither_floyd_steinberg(Image img, i32 x, i32 y, Color err) {
+  update_pixel(img, x + 1, y + 0, err, 7, 16);
+  update_pixel(img, x - 1, y + 1, err, 3, 16);
+  update_pixel(img, x + 0, y + 1, err, 5, 16);
+  update_pixel(img, x + 1, y + 1, err, 1, 16);
 }
 
-static void dither_atkinson(Image img, i32 x, i32 y, i32 *error) {
-  update_pixel(img, x + 1, y + 0, error, 1, 8);
-  update_pixel(img, x + 2, y + 0, error, 1, 8);
-  update_pixel(img, x - 1, y + 1, error, 1, 8);
-  update_pixel(img, x + 0, y + 1, error, 1, 8);
-  update_pixel(img, x + 1, y + 1, error, 1, 8);
-  update_pixel(img, x + 1, y + 2, error, 1, 8);
+static void dither_atkinson(Image img, i32 x, i32 y, Color err) {
+  update_pixel(img, x + 1, y + 0, err, 1, 8);
+  update_pixel(img, x + 2, y + 0, err, 1, 8);
+  update_pixel(img, x - 1, y + 1, err, 1, 8);
+  update_pixel(img, x + 0, y + 1, err, 1, 8);
+  update_pixel(img, x + 1, y + 1, err, 1, 8);
+  update_pixel(img, x + 1, y + 2, err, 1, 8);
 }
 
-static void dither_jjn(Image img, i32 x, i32 y, i32 *error) {
-  update_pixel(img, x + 1, y + 0, error, 7, 48);
-  update_pixel(img, x + 2, y + 0, error, 5, 48);
-  update_pixel(img, x - 2, y + 1, error, 3, 48);
-  update_pixel(img, x - 1, y + 1, error, 5, 48);
-  update_pixel(img, x + 0, y + 1, error, 7, 48);
-  update_pixel(img, x + 1, y + 1, error, 5, 48);
-  update_pixel(img, x + 2, y + 1, error, 3, 48);
-  update_pixel(img, x - 2, y + 2, error, 1, 48);
-  update_pixel(img, x - 1, y + 2, error, 3, 48);
-  update_pixel(img, x + 0, y + 2, error, 5, 48);
-  update_pixel(img, x + 1, y + 2, error, 3, 48);
-  update_pixel(img, x + 2, y + 2, error, 1, 48);
+static void dither_jjn(Image img, i32 x, i32 y, Color err) {
+  update_pixel(img, x + 1, y + 0, err, 7, 48);
+  update_pixel(img, x + 2, y + 0, err, 5, 48);
+  update_pixel(img, x - 2, y + 1, err, 3, 48);
+  update_pixel(img, x - 1, y + 1, err, 5, 48);
+  update_pixel(img, x + 0, y + 1, err, 7, 48);
+  update_pixel(img, x + 1, y + 1, err, 5, 48);
+  update_pixel(img, x + 2, y + 1, err, 3, 48);
+  update_pixel(img, x - 2, y + 2, err, 1, 48);
+  update_pixel(img, x - 1, y + 2, err, 3, 48);
+  update_pixel(img, x + 0, y + 2, err, 5, 48);
+  update_pixel(img, x + 1, y + 2, err, 3, 48);
+  update_pixel(img, x + 2, y + 2, err, 1, 48);
 }
 
-static void dither_burkes(Image img, i32 x, i32 y, i32 *error) {
-  update_pixel(img, x + 1, y + 0, error, 8, 32);
-  update_pixel(img, x + 2, y + 0, error, 4, 32);
-  update_pixel(img, x - 2, y + 1, error, 2, 32);
-  update_pixel(img, x - 1, y + 1, error, 4, 32);
-  update_pixel(img, x + 0, y + 1, error, 8, 32);
-  update_pixel(img, x + 1, y + 1, error, 4, 32);
-  update_pixel(img, x + 2, y + 1, error, 2, 32);
+static void dither_burkes(Image img, i32 x, i32 y, Color err) {
+  update_pixel(img, x + 1, y + 0, err, 8, 32);
+  update_pixel(img, x + 2, y + 0, err, 4, 32);
+  update_pixel(img, x - 2, y + 1, err, 2, 32);
+  update_pixel(img, x - 1, y + 1, err, 4, 32);
+  update_pixel(img, x + 0, y + 1, err, 8, 32);
+  update_pixel(img, x + 1, y + 1, err, 4, 32);
+  update_pixel(img, x + 2, y + 1, err, 2, 32);
 }
 
-static void dither_sierra(Image img, i32 x, i32 y, i32 *error) {
-  update_pixel(img, x + 1, y + 0, error, 5, 32);
-  update_pixel(img, x + 2, y + 0, error, 3, 32);
-  update_pixel(img, x - 2, y + 1, error, 2, 32);
-  update_pixel(img, x - 1, y + 1, error, 4, 32);
-  update_pixel(img, x + 0, y + 1, error, 5, 32);
-  update_pixel(img, x + 1, y + 1, error, 4, 32);
-  update_pixel(img, x + 2, y + 1, error, 2, 32);
-  update_pixel(img, x - 1, y + 2, error, 2, 32);
-  update_pixel(img, x + 0, y + 2, error, 3, 32);
-  update_pixel(img, x + 1, y + 2, error, 2, 32);
+static void dither_sierra(Image img, i32 x, i32 y, Color err) {
+  update_pixel(img, x + 1, y + 0, err, 5, 32);
+  update_pixel(img, x + 2, y + 0, err, 3, 32);
+  update_pixel(img, x - 2, y + 1, err, 2, 32);
+  update_pixel(img, x - 1, y + 1, err, 4, 32);
+  update_pixel(img, x + 0, y + 1, err, 5, 32);
+  update_pixel(img, x + 1, y + 1, err, 4, 32);
+  update_pixel(img, x + 2, y + 1, err, 2, 32);
+  update_pixel(img, x - 1, y + 2, err, 2, 32);
+  update_pixel(img, x + 0, y + 2, err, 3, 32);
+  update_pixel(img, x + 1, y + 2, err, 2, 32);
 }
 
-static void dither_sierra_lite(Image img, i32 x, i32 y, i32 *error) {
-  update_pixel(img, x + 1, y + 0, error, 2, 4);
-  update_pixel(img, x - 1, y + 1, error, 1, 4);
-  update_pixel(img, x + 0, y + 1, error, 1, 4);
+static void dither_sierra_lite(Image img, i32 x, i32 y, Color err) {
+  update_pixel(img, x + 1, y + 0, err, 2, 4);
+  update_pixel(img, x - 1, y + 1, err, 1, 4);
+  update_pixel(img, x + 0, y + 1, err, 1, 4);
 }
 
 void recolor(Image img, Color *palette, usize palette_size, Ditherer dither) {
@@ -87,7 +84,8 @@ void recolor(Image img, Color *palette, usize palette_size, Ditherer dither) {
 
       Color old_color = {
         img.pixels[idx], img.pixels[idx + 1], img.pixels[idx + 2]};
-      i32 error[3];
+
+      Color error;
 
       i32 min_diff = -1;
 
@@ -104,9 +102,9 @@ void recolor(Image img, Color *palette, usize palette_size, Ditherer dither) {
           img.pixels[idx + 1] = color->g;
           img.pixels[idx + 2] = color->b;
 
-          error[0] = dr;
-          error[1] = dg;
-          error[2] = db;
+          error.r = dr;
+          error.g = dg;
+          error.b = db;
         }
       }
 
