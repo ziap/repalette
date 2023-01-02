@@ -7,9 +7,9 @@ static void update_pixel(
 
   usize idx = img.channels * (y * img.width + x);
 
-  int r = img.pixels[idx + 0] + error[0] * mul / div;
-  int g = img.pixels[idx + 1] + error[1] * mul / div;
-  int b = img.pixels[idx + 2] + error[2] * mul / div;
+  i32 r = img.pixels[idx + 0] + error[0] * mul / div;
+  i32 g = img.pixels[idx + 1] + error[1] * mul / div;
+  i32 b = img.pixels[idx + 2] + error[2] * mul / div;
 
   r = r < 0 ? 0 : (r > 255 ? 255 : r);
   g = g < 0 ? 0 : (g > 255 ? 255 : g);
@@ -109,6 +109,7 @@ void recolor(Image img, Color *palette, usize palette_size, Ditherer dither) {
           error[2] = db;
         }
       }
+
       switch (dither) {
         case none: break;
         case floyd_steinberg: dither_floyd_steinberg(img, x, y, error); break;
