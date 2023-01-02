@@ -103,8 +103,8 @@ int parse_arguments(int argc, char** argv, Options* opt) {
       printf("OPTIONS:\n");
       printf("  -p, --palette COLOR[,COLOR...]\n");
       printf(
-        "  -d, --dither  floyd-steinberg | atkinson | jjn | burkes | sierra | "
-        "sierra-lite\n"
+        "  -d, --dither  none | floyd-steinberg | atkinson | jjn | burkes | "
+        "sierra | sierra-lite\n"
       );
       return 1;
     }
