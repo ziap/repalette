@@ -3,6 +3,8 @@
 Repalette is an image colorizer written in C. It is available as both a CLI
 utility and a web application.
 
+![](logo.png)
+
 ## Features
 
 - Recolor images using nearest neighbor search.
@@ -17,13 +19,14 @@ utility and a web application.
 
 ## Benchmark
 
-- Input image size: 7680x4320
+- Processor: Intel® Core™ i5-8300H Processor
+- Input: 7680x4320 JPEG image
 - Color palette: [Nord](http://nordtheme.com/)
 - Average of 10 runs
 
 | Dithering algorithm       | Mean (s) | %slower |
 | ------------------------- | -------- | ------- |
-| No dither                 | 2.398    | 0       |
+| No dithering              | 2.398    | 0       |
 | Floyd-Steinberg           | 3.831    | 60      |
 | Atkinson                  | 3.746    | 56      |
 | Jarvis, Judice, and Ninke | 4.892    | 104     |
@@ -33,6 +36,7 @@ utility and a web application.
 
 To run the benchmark yourself:
 
+- Install [hyperfine](https://github.com/sharkdp/hyperfine)
 - Build the CLI version
 - Put an image with the name `input.jpg` in the same directory as `benchmark.sh`
 - Run `./benchmark.sh`
