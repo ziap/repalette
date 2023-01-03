@@ -76,11 +76,17 @@ canvas {
   cursor: pointer;
 }
 
-#process-image {
+.btn-panel {
+  margin: 10px 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.primary-btn {
   color: #fff;
   background: #137cc1;
   font-size: 1.1rem;
-  margin: 10px 0;
   padding: .675em 1.5em;
   border: none;
   border-radius: .25em;
@@ -88,11 +94,11 @@ canvas {
   transition: background .2s ease-in 0s;
 }
 
-#process-image:hover {
+.primary-btn:hover {
   background: #0e5b8e;
 }
 
-#process-image:disabled {
+.primary-btn:disabled {
   color: #eee;
   background: #6a9ec1;
   cursor: not-allowed;
