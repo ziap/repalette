@@ -15,12 +15,12 @@ textarea {
   max-height: 640px;
   overflow-y: auto;
   margin: 0 auto;
-  border: solid #eee 1px;
 }
 
 canvas {
   width: 100%;
   aspect-ratio: 4 / 3;
+  border: solid #eee 1px;
   cursor: pointer;
 }
 
@@ -47,13 +47,9 @@ canvas {
 
 .palette-controls {
   margin: 10px 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr max-content;
   gap: 10px;
-}
-
-#palette-select {
-  flex-grow: 1;
-  overflow-x: hidden;
 }
 
 .palette-outer {
@@ -87,7 +83,7 @@ canvas {
   color: #fff;
   background: #137cc1;
   font-size: 1.1rem;
-  padding: .675em 1.5em;
+  padding: .675em 0;
   border: none;
   border-radius: .25em;
   cursor: pointer;
