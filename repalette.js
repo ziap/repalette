@@ -1,7 +1,20 @@
 const canvas = document.querySelector('canvas')
-const ctx = canvas.getContext('2d')
+const ctx = canvas.getContext('2d', { willReadFrequently: true })
 const processButton = document.querySelector('#process-image')
 const downloadButton = document.querySelector('#download-image')
+
+const downloader = document.createElement('a')
+downloader.download = 'output'
+downloadButton.addEventListener('click', () => downloader.click())
+
+function updateDownloadURL() {
+  canvas.toBlob(blob => {
+    if (downloader.href) URL.revokeObjectURL(downloader.href)
+    const blobURL = URL.createObjectURL(blob)
+    downloader.href = blobURL
+    downloadButton.disabled = false
+  })
+}
 
 let originalImageData = null
 function displayImage(image) {
@@ -14,18 +27,9 @@ function displayImage(image) {
   originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
   processButton.disabled = false
-  downloadButton.disabled = false
+  downloadButton.disabled = true
+  updateDownloadURL()
 }
-
-downloadButton.addEventListener('click', () => {
-  canvas.toBlob(blob => {
-    const saver = document.createElement('a')
-    const blobURL = (saver.href = URL.createObjectURL(blob))
-    saver.download = 'processed'
-    saver.click()
-    URL.revokeObjectURL(blobURL)
-  }, 'image/png')
-})
 
 function to_rgb(hex) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
@@ -166,5 +170,8 @@ WebAssembly.instantiateStreaming(fetch("./repalette.wasm")).then(wasm => {
     buf.set(data)
     exports.update_canvas(canvas.width, canvas.height, ditherSelect.value)
     ctx.putImageData(imgdata, 0, 0)
+
+    downloadButton.disabled = true
+    updateDownloadURL()
   })
 })
