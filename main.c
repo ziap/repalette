@@ -121,6 +121,7 @@ int parse_arguments(int argc, char** argv, Options* opt) {
   opt->output_file = argv[2];
   opt->dither = floyd_steinberg;
   opt->palette_size = 0;
+  opt->palette = NULL;
 
   for (int i = 3; i < argc; i += 2) {
     if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--dither") == 0) {

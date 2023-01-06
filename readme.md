@@ -64,7 +64,7 @@ make repalette CC=gcc
 **Note:**
 
 Repalette uses `stb_image` and `stb_image_write` for working with images.
-They're automatically downloaded as make dependencies using `wget`.
+They're automatically downloaded as make dependencies using `curl`.
 
 ## Usage
 
