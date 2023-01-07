@@ -1,7 +1,7 @@
 #include "repalette.h"
 
 static void update_pixel(Image img, i32 x, i32 y, Color err, i32 mul, i32 div) {
-  if (x < 0 || x >= img.width || y < 0 || y >= img.height) return;
+  if (x < 0 || x >= img.width) return;
   usize idx = img.channels * (y * img.width + x);
 
   i32 r = img.pixels[idx + 0] + err.r * mul / div;
@@ -19,6 +19,7 @@ static void update_pixel(Image img, i32 x, i32 y, Color err, i32 mul, i32 div) {
 
 static void dither_floyd_steinberg(Image img, i32 x, i32 y, Color err) {
   update_pixel(img, x + 1, y + 0, err, 7, 16);
+  if (y + 1 >= img.height) return;
   update_pixel(img, x - 1, y + 1, err, 3, 16);
   update_pixel(img, x + 0, y + 1, err, 5, 16);
   update_pixel(img, x + 1, y + 1, err, 1, 16);
@@ -27,20 +28,24 @@ static void dither_floyd_steinberg(Image img, i32 x, i32 y, Color err) {
 static void dither_atkinson(Image img, i32 x, i32 y, Color err) {
   update_pixel(img, x + 1, y + 0, err, 1, 8);
   update_pixel(img, x + 2, y + 0, err, 1, 8);
+  if (y + 1 >= img.height) return;
   update_pixel(img, x - 1, y + 1, err, 1, 8);
   update_pixel(img, x + 0, y + 1, err, 1, 8);
   update_pixel(img, x + 1, y + 1, err, 1, 8);
+  if (y + 2 >= img.height) return;
   update_pixel(img, x + 1, y + 2, err, 1, 8);
 }
 
 static void dither_jjn(Image img, i32 x, i32 y, Color err) {
   update_pixel(img, x + 1, y + 0, err, 7, 48);
   update_pixel(img, x + 2, y + 0, err, 5, 48);
+  if (y + 1 >= img.height) return;
   update_pixel(img, x - 2, y + 1, err, 3, 48);
   update_pixel(img, x - 1, y + 1, err, 5, 48);
   update_pixel(img, x + 0, y + 1, err, 7, 48);
   update_pixel(img, x + 1, y + 1, err, 5, 48);
   update_pixel(img, x + 2, y + 1, err, 3, 48);
+  if (y + 2 >= img.height) return;
   update_pixel(img, x - 2, y + 2, err, 1, 48);
   update_pixel(img, x - 1, y + 2, err, 3, 48);
   update_pixel(img, x + 0, y + 2, err, 5, 48);
@@ -51,6 +56,7 @@ static void dither_jjn(Image img, i32 x, i32 y, Color err) {
 static void dither_burkes(Image img, i32 x, i32 y, Color err) {
   update_pixel(img, x + 1, y + 0, err, 8, 32);
   update_pixel(img, x + 2, y + 0, err, 4, 32);
+  if (y + 1 >= img.height) return;
   update_pixel(img, x - 2, y + 1, err, 2, 32);
   update_pixel(img, x - 1, y + 1, err, 4, 32);
   update_pixel(img, x + 0, y + 1, err, 8, 32);
@@ -61,11 +67,13 @@ static void dither_burkes(Image img, i32 x, i32 y, Color err) {
 static void dither_sierra(Image img, i32 x, i32 y, Color err) {
   update_pixel(img, x + 1, y + 0, err, 5, 32);
   update_pixel(img, x + 2, y + 0, err, 3, 32);
+  if (y + 1 >= img.height) return;
   update_pixel(img, x - 2, y + 1, err, 2, 32);
   update_pixel(img, x - 1, y + 1, err, 4, 32);
   update_pixel(img, x + 0, y + 1, err, 5, 32);
   update_pixel(img, x + 1, y + 1, err, 4, 32);
   update_pixel(img, x + 2, y + 1, err, 2, 32);
+  if (y + 2 >= img.height) return;
   update_pixel(img, x - 1, y + 2, err, 2, 32);
   update_pixel(img, x + 0, y + 2, err, 3, 32);
   update_pixel(img, x + 1, y + 2, err, 2, 32);
@@ -73,6 +81,7 @@ static void dither_sierra(Image img, i32 x, i32 y, Color err) {
 
 static void dither_sierra_lite(Image img, i32 x, i32 y, Color err) {
   update_pixel(img, x + 1, y + 0, err, 2, 4);
+  if (y + 1 >= img.height) return;
   update_pixel(img, x - 1, y + 1, err, 1, 4);
   update_pixel(img, x + 0, y + 1, err, 1, 4);
 }
