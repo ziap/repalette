@@ -118,13 +118,13 @@ void recolor(Image img, Color *palette, usize palette_size, Ditherer dither) {
       }
 
       switch (dither) {
-        case none: break;
-        case floyd_steinberg: dither_floyd_steinberg(img, x, y, error); break;
-        case atkinson: dither_atkinson(img, x, y, error); break;
-        case jjn: dither_jjn(img, x, y, error); break;
-        case burkes: dither_burkes(img, x, y, error); break;
-        case sierra: dither_sierra(img, x, y, error); break;
-        case sierra_lite: dither_sierra_lite(img, x, y, error); break;
+        case NONE: break;
+        case FLOYD_STEINBERG: dither_floyd_steinberg(img, x, y, error); break;
+        case ATKINSON: dither_atkinson(img, x, y, error); break;
+        case JJN: dither_jjn(img, x, y, error); break;
+        case BURKES: dither_burkes(img, x, y, error); break;
+        case SIERRA: dither_sierra(img, x, y, error); break;
+        case SIERRA_LITE: dither_sierra_lite(img, x, y, error); break;
       }
     }
   }

@@ -20,13 +20,13 @@ typedef struct {
 } Image;
 
 typedef enum {
-  none,
-  floyd_steinberg,
-  atkinson,
-  jjn,
-  burkes,
-  sierra,
-  sierra_lite
+  NONE,
+  FLOYD_STEINBERG,
+  ATKINSON,
+  JJN,
+  BURKES,
+  SIERRA,
+  SIERRA_LITE,
 } Ditherer;
 
 extern void recolor(Image, Color*, usize, Ditherer);

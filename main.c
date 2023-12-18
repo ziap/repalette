@@ -32,31 +32,31 @@ typedef struct {
 
 int parse_dither(const char* param, Ditherer* dither) {
   if (strcmp(param, "none") == 0) {
-    *dither = none;
+    *dither = NONE;
     return 0;
   }
   if (strcmp(param, "floyd-steinberg") == 0) {
-    *dither = floyd_steinberg;
+    *dither = FLOYD_STEINBERG;
     return 0;
   }
   if (strcmp(param, "atkinson") == 0) {
-    *dither = atkinson;
+    *dither = ATKINSON;
     return 0;
   }
   if (strcmp(param, "jjn") == 0) {
-    *dither = jjn;
+    *dither = JJN;
     return 0;
   }
   if (strcmp(param, "burkes") == 0) {
-    *dither = burkes;
+    *dither = BURKES;
     return 0;
   }
   if (strcmp(param, "sierra") == 0) {
-    *dither = sierra;
+    *dither = SIERRA;
     return 0;
   }
   if (strcmp(param, "sierra-lite") == 0) {
-    *dither = sierra_lite;
+    *dither = SIERRA_LITE;
     return 0;
   }
   fprintf(stderr, "ERROR: Unknown dithering strategy \"%s\"\n", param);
@@ -119,7 +119,7 @@ int parse_arguments(int argc, char** argv, Options* opt) {
 
   opt->input_file = argv[1];
   opt->output_file = argv[2];
-  opt->dither = floyd_steinberg;
+  opt->dither = FLOYD_STEINBERG;
   opt->palette_size = 0;
   opt->palette = NULL;
 

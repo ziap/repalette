@@ -117,18 +117,21 @@ paletteExport.addEventListener('blur', e => {
 fetch('https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json').then(async response => {
   const data = await response.json()
 
-  const themes = data.themes.map(x => ({
-    name: x.name,
-    palette: new Set(Object.values(x).filter(x => /^#[0-9A-Fa-f]{6}$/i.test(x)))
-  }))
-
   const paletteSelector = document.querySelector('#palette-select')
   paletteSelector.querySelector('option').textContent = 'Select palette'
 
-  for (let i = 0; i < themes.length; ++i) {
+  const themes = new Array(data.length)
+  for (let i = 0; i < data.length; ++i) {
+    const {name} = data[i]
+
+    const palette = new Set()
+    for (const [k, v] of Object.entries(data[i])) if (k.startsWith("color_")) palette.add(v)
+
+    themes[i] = { name, palette }
+
     const option = document.createElement('option')
     option.value = i
-    option.textContent = themes[i].name
+    option.textContent = name
 
     paletteSelector.appendChild(option)
   }
@@ -140,10 +143,11 @@ fetch('https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json').
 
     for (const color of themes[e.target.value].palette) addColor(color)
   })
-}).catch(() => {
+}).catch(e => {
   const paletteSelector = document.querySelector('#palette-select')
   const option = paletteSelector.querySelector('option')
   option.textContent = 'ERROR: Failed to fetch colors from Gosh'
+  throw e
 })
 
 WebAssembly.instantiateStreaming(fetch("./repalette.wasm")).then(wasm => {
