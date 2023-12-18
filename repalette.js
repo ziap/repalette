@@ -31,12 +31,23 @@ function displayImage(image) {
   updateDownloadURL()
 }
 
-function to_rgb(hex) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+const hexChars = new Set("0123456789abcdefABCDEF")
+function isHex(str) {
+  if (str.length != 7) return false
+  if (str[0] != '#') return false
+
+  for (let i = 1; i < str.length; ++i) {
+    if (!hexChars.has(str[i])) return false
+  }
+
+  return true
+}
+
+function Hex2RGB(hex) {
   return [
-    parseInt(result[1], 16),
-    parseInt(result[2], 16),
-    parseInt(result[3], 16),
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16),
   ]
 }
 
@@ -83,7 +94,7 @@ function addColor(hex) {
   colorInp.classList.add('color-input')
   colorInp.type = 'color'
   colorInp.value = hex
-  colorInp.addEventListener('change', e => color.style.background = e.target.value)
+  colorInp.addEventListener('change', () => color.style.background = colorInp.value)
 
   const colorRemove = document.createElement('button')
   colorRemove.textContent = "\u00D7"
@@ -109,23 +120,23 @@ paletteExport.addEventListener('focus', e => {
 paletteExport.addEventListener('blur', e => {
   for (const color of document.querySelectorAll('.color')) color.remove()
 
-  for (const line of e.target.value.split('\n')) {
-    if (/^#[0-9A-Fa-f]{6}$/i.test(line)) addColor(line)
-  }
+  for (const line of e.target.value.split('\n')) if (isHex(line)) addColor(line)
 })
+
+const paletteSelector = document.querySelector('#palette-select')
+const option = paletteSelector.querySelector('option')
 
 fetch('https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json').then(async response => {
   const data = await response.json()
 
-  const paletteSelector = document.querySelector('#palette-select')
-  paletteSelector.querySelector('option').textContent = 'Select palette'
+  option.textContent = 'Select palette'
 
   const themes = new Array(data.length)
   for (let i = 0; i < data.length; ++i) {
     const {name} = data[i]
 
     const palette = new Set()
-    for (const [k, v] of Object.entries(data[i])) if (k.startsWith("color_")) palette.add(v)
+    for (const value of Object.values(data[i])) if (isHex(value)) palette.add(value)
 
     themes[i] = { name, palette }
 
@@ -144,8 +155,6 @@ fetch('https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json').
     for (const color of themes[e.target.value].palette) addColor(color)
   })
 }).catch(e => {
-  const paletteSelector = document.querySelector('#palette-select')
-  const option = paletteSelector.querySelector('option')
   option.textContent = 'ERROR: Failed to fetch colors from Gosh'
   throw e
 })
@@ -160,7 +169,7 @@ WebAssembly.instantiateStreaming(fetch("./repalette.wasm")).then(wasm => {
 
     exports.palette_clear()
     for (const color of document.querySelectorAll('.color-input')) {
-      const [r, g, b] = to_rgb(color.value)
+      const [r, g, b] = Hex2RGB(color.value)
       exports.palette_add(r, g, b)
     }
 
