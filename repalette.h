@@ -1,22 +1,24 @@
 #ifndef REPALETTE_H
 #define REPALETTE_H
 
-typedef __INT32_TYPE__ i32;
-typedef __UINT8_TYPE__ u8;
-typedef __UINT32_TYPE__ u32;
-typedef __SIZE_TYPE__ usize;
+#include <stdint.h>
+#include <stddef.h>
+
+typedef uint8_t u8;
+typedef uint32_t Hex;
 
 typedef struct {
-  i32 r;
-  i32 g;
-  i32 b;
+  int r;
+  int g;
+  int b;
 } Color;
 
+// TODO: Force image to have 4 channels
 typedef struct {
   u8* pixels;
-  i32 width;
-  i32 height;
-  i32 channels;
+  int width;
+  int height;
+  int channels;
 } Image;
 
 typedef enum {
@@ -29,6 +31,6 @@ typedef enum {
   SIERRA_LITE,
 } Ditherer;
 
-extern void recolor(Image, Color*, usize, Ditherer);
+extern void recolor(Image, Color*, size_t, Ditherer);
 
 #endif

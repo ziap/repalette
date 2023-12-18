@@ -10,7 +10,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-Color from_hex(u32 hex) {
+Color from_hex(Hex hex) {
   Color c;
 
   c.r = (hex & 0xff0000) >> 16;
@@ -25,7 +25,7 @@ typedef struct {
   const char* output_file;
 
   Color* palette;
-  usize palette_size;
+  size_t palette_size;
 
   Ditherer dither;
 } Options;
@@ -63,7 +63,7 @@ int parse_dither(const char* param, Ditherer* dither) {
   return 1;
 }
 
-int parse_palette(const char* param, Color** palette, usize* palette_size) {
+int parse_palette(const char* param, Color** palette, size_t* palette_size) {
   *palette_size = 1;
   for (const char* c = param; *c != '\0'; ++c) {
     if (*c == ',') ++*palette_size;
@@ -71,7 +71,7 @@ int parse_palette(const char* param, Color** palette, usize* palette_size) {
   if (*palette) free(*palette);
   *palette = malloc(*palette_size * sizeof(Color));
   *palette_size = 0;
-  u32 hex = 0;
+  Hex hex = 0;
   for (const char* c = param; *c != '\0'; ++c) {
     if (*c == ',') {
       (*palette)[(*palette_size)++] = from_hex(hex);
