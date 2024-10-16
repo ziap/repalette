@@ -1,11 +1,11 @@
 CC=clang
-CFLAGS=-O3 -Wall -Wextra
+CFLAGS=-O3 -Wall -Wextra -pedantic -std=c99
 LDLIBS=-lm
 
 NATIVE_FLAGS=-s -march=native -mtune=native
 
-WASM_CFLAGS=-O3 --target=wasm32 -flto -nostdlib -fvisibility=hidden -mbulk-memory -msimd128
-WASM_LDFLAGS=--no-entry --strip-debug --lto-O3 --allow-undefined --export-dynamic
+WASM_CFLAGS=--target=wasm32 -flto -nostdlib -fvisibility=hidden -mbulk-memory -msimd128
+WASM_LDFLAGS=--no-entry --strip-all --lto-O3 --allow-undefined --export-dynamic
 WASM_FLAGS=$(WASM_CFLAGS) $(foreach flag,$(WASM_LDFLAGS),-Wl,$(flag))
 
 .PHONY: all

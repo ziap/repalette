@@ -75,6 +75,7 @@ canvas {
   border: none;
   border-radius: .25em;
   cursor: pointer;
+  min-width: 0;
 }
 
 .btn-panel {

@@ -19,7 +19,7 @@ static void resize(size_t new_size) {
 
 size_t palette_size;
 
-export void palette_clear() { palette_size = 0; }
+export void palette_clear(void) { palette_size = 0; }
 
 export void palette_add(u8 red, u8 green, u8 blue) {
   resize((palette_size + 1) * sizeof(Color));
