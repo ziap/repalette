@@ -45,15 +45,13 @@ static double now_ms(void) {
 }
 
 int main(void) {
-  /* 13 Nord colors, padded to 16 (a multiple of 4) by repeating the last
-     color so the SIMD search needs no scalar tail. Duplicate entries are
-     harmless: they yield the same distance and the same output color. */
   Palette palette = {
+    .buffer = NULL,
+    .size = 16,
     .rs = (int[]){0x3b, 0xbf, 0xa3, 0xeb, 0x81, 0xb4, 0x88, 0xe5, 0x4c, 0x8f, 0xec, 0xd8, 0x2e, 0x2e, 0x2e, 0x2e},
     .gs = (int[]){0x42, 0x61, 0xbe, 0xcb, 0xa1, 0x8e, 0xc0, 0xe9, 0x56, 0xbc, 0xef, 0xde, 0x34, 0x34, 0x34, 0x34},
     .bs = (int[]){0x52, 0x6a, 0x8c, 0x8b, 0xc1, 0xad, 0xd0, 0xf0, 0x6a, 0xbb, 0xf4, 0xe9, 0x40, 0x40, 0x40, 0x40},
   };
-  size_t palette_size = 16;
 
   Image img;
   int n;
@@ -72,7 +70,7 @@ int main(void) {
 
   printf(
     "%s: %dx%d, palette %zu colors, %d runs each\n\n", INPUT_FILE, img.width,
-    img.height, palette_size, RUNS
+    img.height, palette.size, RUNS
   );
   printf("%-16s %12s %12s\n", "DITHER", "MEAN (ms)", "STD (ms)");
 
@@ -80,7 +78,7 @@ int main(void) {
   for (size_t dither = 0; dither < num_dithers; ++dither) {
     for (int w = 0; w < WARMUP; ++w) {
       memcpy(img.pixels, original, size);
-      recolor_simd(img, palette, palette_size, dither);
+      recolor_simd(img, palette, dither);
     }
 
     double times[RUNS];
@@ -89,7 +87,7 @@ int main(void) {
       memcpy(img.pixels, original, size);
 
       double start = now_ms();
-      recolor_simd(img, palette, palette_size, dither);
+      recolor_simd(img, palette, dither);
       times[r] = now_ms() - start;
 
       sum += times[r];
@@ -105,7 +103,7 @@ int main(void) {
 
   // Correctness: diff each dither's output against the scalar AoS reference.
   Color ref_palette[16];
-  for (size_t i = 0; i < palette_size; ++i)
+  for (size_t i = 0; i < palette.size; ++i)
     ref_palette[i] = (Color){palette.rs[i], palette.gs[i], palette.bs[i]};
 
   u8* ref = malloc(size);
@@ -114,11 +112,11 @@ int main(void) {
   printf("\n%-16s %14s %10s\n", "DITHER", "WRONG PX", "%");
   for (size_t dither = 0; dither < num_dithers; ++dither) {
     memcpy(img.pixels, original, size);
-    recolor_simd(img, palette, palette_size, dither);
+    recolor_simd(img, palette, dither);
 
     memcpy(ref, original, size);
     RefImage rimg = {ref, img.width, img.height, CHANNELS};
-    recolor(rimg, ref_palette, palette_size, dither);
+    recolor(rimg, ref_palette, palette.size, dither);
 
     size_t wrong = 0;
     for (size_t p = 0; p < total_px; ++p) {

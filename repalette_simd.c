@@ -1,5 +1,4 @@
 #include <limits.h>
-#include <stdint.h>
 
 #include "repalette_simd.h"
 
@@ -12,7 +11,7 @@ static inline void update_pixel(Image img, int x, int y, Color err, int mul, int
 
   // One pixel is a 4-byte RGBA unit: load + widen the channels into a vector.
   u8x4 bytes;
-  __builtin_memcpy(&bytes, &img.pixels[idx], sizeof bytes);
+  __builtin_memcpy(&bytes, img.pixels + idx, sizeof bytes);
   i32x4 pix = __builtin_convertvector(bytes, i32x4);
 
   i32x4 e = {err.r, err.g, err.b, 0};  // alpha error is 0, so alpha is unchanged
@@ -25,7 +24,7 @@ static inline void update_pixel(Image img, int x, int y, Color err, int mul, int
   out = (255 & over) | (out & ~over);
 
   bytes = __builtin_convertvector(out, u8x4);
-  __builtin_memcpy(&img.pixels[idx], &bytes, sizeof bytes);
+  __builtin_memcpy(img.pixels + idx, &bytes, sizeof bytes);
 }
 
 static void dither_floyd_steinberg(Image img, int x, int y, Color err) {
@@ -104,12 +103,12 @@ static void dither_none(Image img, int x, int y, Color err) {
   (void)err;
 }
 
-static int find_nearest(Palette palette, size_t palette_size, Color c) {
+static int find_nearest(Palette palette, Color c) {
   i32x4 vmin = {INT_MAX, INT_MAX, INT_MAX, INT_MAX};
   i32x4 vlane = {0, 1, 2, 3};
   i32x4 vbest = vlane;
 
-  for (size_t i = 0; i < palette_size; i += 4) {
+  for (size_t i = 0; i < palette.size; i += 4) {
     i32x4 pr, pg, pb;
     __builtin_memcpy(&pr, &palette.rs[i], sizeof pr);
     __builtin_memcpy(&pg, &palette.gs[i], sizeof pg);
@@ -140,7 +139,7 @@ static int find_nearest(Palette palette, size_t palette_size, Color c) {
 }
 
 #define DEFINE_RECOLOR(name, dither)                                          \
-  static void name(Image img, Palette palette, size_t palette_size) {         \
+  static void name(Image img, Palette palette) {                              \
     for (int y = 0; y < img.height; ++y) {                                    \
       for (int x = 0; x < img.width; ++x) {                                   \
         const size_t idx = (CHANNELS * (y * img.width + x));                  \
@@ -148,7 +147,7 @@ static int find_nearest(Palette palette, size_t palette_size, Color c) {
         Color old_color = {                                                   \
           img.pixels[idx], img.pixels[idx + 1], img.pixels[idx + 2]};         \
                                                                               \
-        int best = find_nearest(palette, palette_size, old_color);            \
+        int best = find_nearest(palette, old_color);                          \
                                                                               \
         Color error = {                                                       \
           old_color.r - palette.rs[best],                                     \
@@ -173,14 +172,14 @@ DEFINE_RECOLOR(recolor_burkes, dither_burkes)
 DEFINE_RECOLOR(recolor_sierra, dither_sierra)
 DEFINE_RECOLOR(recolor_sierra_lite, dither_sierra_lite)
 
-void recolor_simd(Image img, Palette palette, size_t palette_size, Ditherer dither) {
+void recolor_simd(Image img, Palette palette, Ditherer dither) {
   switch (dither) {
-    case NONE: recolor_none(img, palette, palette_size); break;
-    case FLOYD_STEINBERG: recolor_floyd_steinberg(img, palette, palette_size); break;
-    case ATKINSON: recolor_atkinson(img, palette, palette_size); break;
-    case JJN: recolor_jjn(img, palette, palette_size); break;
-    case BURKES: recolor_burkes(img, palette, palette_size); break;
-    case SIERRA: recolor_sierra(img, palette, palette_size); break;
-    case SIERRA_LITE: recolor_sierra_lite(img, palette, palette_size); break;
+    case NONE: recolor_none(img, palette); break;
+    case FLOYD_STEINBERG: recolor_floyd_steinberg(img, palette); break;
+    case ATKINSON: recolor_atkinson(img, palette); break;
+    case JJN: recolor_jjn(img, palette); break;
+    case BURKES: recolor_burkes(img, palette); break;
+    case SIERRA: recolor_sierra(img, palette); break;
+    case SIERRA_LITE: recolor_sierra_lite(img, palette); break;
   }
 }

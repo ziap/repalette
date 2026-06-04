@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "repalette.h"
+#include "repalette_simd.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -15,7 +15,7 @@ Color from_hex(Hex hex) {
 
   c.r = (hex & 0xff0000) >> 16;
   c.g = (hex & 0x00ff00) >> 8;
-  c.b = (hex & 0x0000ff);
+  c.b = (hex & 0x0000ff) >> 0;
 
   return c;
 }
@@ -24,9 +24,7 @@ typedef struct {
   const char* input_file;
   const char* output_file;
 
-  Color* palette;
-  size_t palette_size;
-
+  Palette palette;
   Ditherer dither;
 } Options;
 
@@ -63,18 +61,31 @@ int parse_dither(const char* param, Ditherer* dither) {
   return 1;
 }
 
-int parse_palette(const char* param, Color** palette, size_t* palette_size) {
-  *palette_size = 1;
+int parse_palette(const char *param, Palette *palette) {
+  size_t size = 1;
   for (const char* c = param; *c != '\0'; ++c) {
-    if (*c == ',') ++*palette_size;
+    if (*c == ',') ++size;
   }
-  if (*palette) free(*palette);
-  *palette = malloc(*palette_size * sizeof(Color));
-  *palette_size = 0;
+
+  palette->size = (size + 3) / 4 * 4;
+
+  if (palette->buffer) free(palette->buffer);
+  palette->buffer = malloc(3 * palette->size * sizeof(int));
+
+  int *rs = palette->buffer + 0 * palette->size;
+  int *gs = palette->buffer + 1 * palette->size;
+  int *bs = palette->buffer + 2 * palette->size;
+
+  size = 0;
   Hex hex = 0;
   for (const char* c = param; *c != '\0'; ++c) {
     if (*c == ',') {
-      (*palette)[(*palette_size)++] = from_hex(hex);
+      Color color = from_hex(hex);
+      rs[size] = color.r;
+      gs[size] = color.g;
+      bs[size] = color.b;
+
+      size += 1;
       hex = 0;
       continue;
     }
@@ -89,7 +100,17 @@ int parse_palette(const char* param, Color** palette, size_t* palette_size) {
       return 1;
     }
   }
-  (*palette)[(*palette_size)++] = from_hex(hex);
+
+  Color color = from_hex(hex);
+  for (size_t i = size; i < palette->size; ++i) {
+    rs[i] = color.r;
+    gs[i] = color.g;
+    bs[i] = color.b;
+  }
+
+  palette->rs = rs;
+  palette->gs = gs;
+  palette->bs = bs;
   return 0;
 }
 
@@ -117,11 +138,19 @@ int parse_arguments(int argc, char** argv, Options* opt) {
     return -1;
   }
 
-  opt->input_file = argv[1];
-  opt->output_file = argv[2];
-  opt->dither = FLOYD_STEINBERG;
-  opt->palette_size = 0;
-  opt->palette = NULL;
+  *opt = (Options) {
+    .input_file = argv[1],
+    .output_file = argv[2],
+    .dither = FLOYD_STEINBERG,
+
+    .palette = (Palette) {
+      .size = 0,
+      .buffer = NULL,
+      .rs = NULL,
+      .gs = NULL,
+      .bs = NULL,
+    },
+  };
 
   for (int i = 3; i < argc; i += 2) {
     if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--dither") == 0) {
@@ -136,7 +165,7 @@ int parse_arguments(int argc, char** argv, Options* opt) {
 
       continue;
     }
-    if (strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--palette")) {
+    if (strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--palette") == 0) {
       if (i == argc - 1) {
         fprintf(
           stderr, "ERROR: parameter required for argument \"%s\"\n", argv[i]
@@ -144,7 +173,7 @@ int parse_arguments(int argc, char** argv, Options* opt) {
         return -1;
       }
 
-      if (parse_palette(argv[i + 1], &opt->palette, &opt->palette_size))
+      if (parse_palette(argv[i + 1], &opt->palette))
         return -1;
       continue;
     }
@@ -152,58 +181,73 @@ int parse_arguments(int argc, char** argv, Options* opt) {
     return -1;
   }
 
-  if (opt->palette_size == 0) {
-    opt->palette_size = 2;
+  if (opt->palette.size == 0) {
+    opt->palette.size = 4;
 
-    if (opt->palette) free(opt->palette);
+    if (opt->palette.buffer) free(opt->palette.buffer);
+    opt->palette.buffer = malloc(12 * sizeof(int));
 
-    opt->palette = malloc(opt->palette_size * sizeof(Color));
-    opt->palette[0] = from_hex(0x000000);
-    opt->palette[1] = from_hex(0xffffff);
+    int *rs = opt->palette.buffer + 0;
+    int *gs = opt->palette.buffer + 4;
+    int *bs = opt->palette.buffer + 8;
+
+    rs[0] = 0x00;
+    gs[0] = 0x00;
+    bs[0] = 0x00;
+
+    for (size_t i = 1; i < opt->palette.size; ++i) {
+      rs[i] = 0xff;
+      gs[i] = 0xff;
+      bs[i] = 0xff;
+    }
+
+    opt->palette.rs = rs;
+    opt->palette.gs = gs;
+    opt->palette.bs = bs;
   }
   return 0;
 }
 
 int main(int argc, char** argv) {
-  Options opt;
+  Options opt = {0};
 
   int status = parse_arguments(argc, argv, &opt);
   if (status != 0) {
-    if (opt.palette) free(opt.palette);
+    if (opt.palette.buffer) free(opt.palette.buffer);
     return status < 0;
   }
 
   Image img;
 
-  img.pixels =
-    stbi_load(opt.input_file, &img.width, &img.height, &img.channels, 3);
+  int n;
+  img.pixels = stbi_load(opt.input_file, &img.width, &img.height, &n, CHANNELS);
 
   if (img.pixels == NULL) {
     fprintf(
       stderr, "ERROR: Can't load image %s: %s\n", opt.input_file,
       strerror(errno)
     );
-    free(opt.palette);
+    free(opt.palette.buffer);
     return errno;
   }
 
-  recolor(img, opt.palette, opt.palette_size, opt.dither);
+  recolor_simd(img, opt.palette, opt.dither);
 
   stbi_write_png(
-    opt.output_file, img.width, img.height, img.channels, img.pixels,
-    img.width * img.channels
+    opt.output_file, img.width, img.height, CHANNELS, img.pixels,
+    img.width * CHANNELS
   );
   if (errno) {
     fprintf(
       stderr, "ERROR: Failed to write image %s: %s\n", opt.output_file,
       strerror(errno)
     );
-    free(opt.palette);
+    free(opt.palette.buffer);
     free(img.pixels);
     return errno;
   }
 
-  free(opt.palette);
+  free(opt.palette.buffer);
   free(img.pixels);
   return 0;
 }

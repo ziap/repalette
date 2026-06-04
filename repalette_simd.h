@@ -17,6 +17,9 @@ typedef struct {
 } Color;
 
 typedef struct {
+  int *buffer;
+  size_t size;
+
   const int *rs;
   const int *gs;
   const int *bs;
@@ -38,6 +41,6 @@ typedef enum {
   SIERRA_LITE,
 } Ditherer;
 
-extern void recolor_simd(Image, Palette, size_t, Ditherer);
+extern void recolor_simd(Image, Palette, Ditherer);
 
 #endif
