@@ -87,48 +87,68 @@ static void dither_sierra_lite(Image img, int x, int y, Color err) {
   update_pixel(img, x + 0, y + 1, err, 1, 4);
 }
 
+static void dither_none(Image img, int x, int y, Color err) {
+  (void)img;
+  (void)x;
+  (void)y;
+  (void)err;
+}
+
+#define DEFINE_RECOLOR(name, dither)                                          \
+  static void name(Image img, Color *palette, size_t palette_size) {          \
+    for (int y = 0; y < img.height; ++y) {                                    \
+      for (int x = 0; x < img.width; ++x) {                                   \
+        const size_t idx = (img.channels * (y * img.width + x));              \
+                                                                              \
+        Color old_color = {                                                   \
+          img.pixels[idx], img.pixels[idx + 1], img.pixels[idx + 2]};         \
+                                                                              \
+        Color error;                                                          \
+                                                                              \
+        int min_diff = -1;                                                    \
+                                                                              \
+        /* TODO: Vectorize best color selection */                            \
+        for (Color *color = palette; color != palette + palette_size;         \
+             ++color) {                                                       \
+          int dr = old_color.r - color->r;                                    \
+          int dg = old_color.g - color->g;                                    \
+          int db = old_color.b - color->b;                                    \
+                                                                              \
+          int diff = dr * dr + dg * dg + db * db;                             \
+          if (min_diff == -1 || diff < min_diff) {                            \
+            min_diff = diff;                                                  \
+                                                                              \
+            img.pixels[idx + 0] = color->r;                                   \
+            img.pixels[idx + 1] = color->g;                                   \
+            img.pixels[idx + 2] = color->b;                                   \
+                                                                              \
+            error.r = dr;                                                     \
+            error.g = dg;                                                     \
+            error.b = db;                                                     \
+          }                                                                   \
+        }                                                                     \
+                                                                              \
+        dither(img, x, y, error);                                             \
+      }                                                                       \
+    }                                                                         \
+  }
+
+DEFINE_RECOLOR(recolor_none, dither_none)
+DEFINE_RECOLOR(recolor_floyd_steinberg, dither_floyd_steinberg)
+DEFINE_RECOLOR(recolor_atkinson, dither_atkinson)
+DEFINE_RECOLOR(recolor_jjn, dither_jjn)
+DEFINE_RECOLOR(recolor_burkes, dither_burkes)
+DEFINE_RECOLOR(recolor_sierra, dither_sierra)
+DEFINE_RECOLOR(recolor_sierra_lite, dither_sierra_lite)
+
 void recolor(Image img, Color *palette, size_t palette_size, Ditherer dither) {
-  for (int y = 0; y < img.height; ++y) {
-    for (int x = 0; x < img.width; ++x) {
-      const size_t idx = (img.channels * (y * img.width + x));
-
-      Color old_color = {
-        img.pixels[idx], img.pixels[idx + 1], img.pixels[idx + 2]};
-
-      Color error;
-
-      int min_diff = -1;
-
-      // TODO: Vectorize best color selection
-      for (Color *color = palette; color != palette + palette_size; ++color) {
-        int dr = old_color.r - color->r;
-        int dg = old_color.g - color->g;
-        int db = old_color.b - color->b;
-
-        int diff = dr * dr + dg * dg + db * db;
-        if (min_diff == -1 || diff < min_diff) {
-          min_diff = diff;
-
-          img.pixels[idx + 0] = color->r;
-          img.pixels[idx + 1] = color->g;
-          img.pixels[idx + 2] = color->b;
-
-          error.r = dr;
-          error.g = dg;
-          error.b = db;
-        }
-      }
-
-      // TODO: Move this switch outside the for loop
-      switch (dither) {
-        case NONE: break;
-        case FLOYD_STEINBERG: dither_floyd_steinberg(img, x, y, error); break;
-        case ATKINSON: dither_atkinson(img, x, y, error); break;
-        case JJN: dither_jjn(img, x, y, error); break;
-        case BURKES: dither_burkes(img, x, y, error); break;
-        case SIERRA: dither_sierra(img, x, y, error); break;
-        case SIERRA_LITE: dither_sierra_lite(img, x, y, error); break;
-      }
-    }
+  switch (dither) {
+    case NONE: recolor_none(img, palette, palette_size); break;
+    case FLOYD_STEINBERG: recolor_floyd_steinberg(img, palette, palette_size); break;
+    case ATKINSON: recolor_atkinson(img, palette, palette_size); break;
+    case JJN: recolor_jjn(img, palette, palette_size); break;
+    case BURKES: recolor_burkes(img, palette, palette_size); break;
+    case SIERRA: recolor_sierra(img, palette, palette_size); break;
+    case SIERRA_LITE: recolor_sierra_lite(img, palette, palette_size); break;
   }
 }
