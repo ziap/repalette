@@ -11,8 +11,8 @@ WASM_FLAGS=$(WASM_CFLAGS) $(foreach flag,$(WASM_LDFLAGS),-Wl,$(flag))
 .PHONY: all
 all: repalette repalette.wasm
 
-repalette: main.c repalette.c stb_image.h stb_image_write.h
-	$(CC) -o $@ main.c repalette.c $(CFLAGS) $(LDLIBS) $(NATIVE_FLAGS)
+repalette: main.c repalette_simd.c stb_image.h stb_image_write.h
+	$(CC) -o $@ main.c repalette_simd.c $(CFLAGS) $(LDLIBS) $(NATIVE_FLAGS)
 
 benchmark: benchmark.c repalette.c stb_image.h
 	$(CC) -o $@ benchmark.c repalette.c $(CFLAGS) $(LDLIBS) $(NATIVE_FLAGS)
