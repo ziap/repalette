@@ -1,4 +1,4 @@
-CC=clang
+CC?=clang
 CFLAGS=-O3 -Wall -Wextra -pedantic -std=c99
 LDLIBS=-lm
 
@@ -13,6 +13,12 @@ all: repalette repalette.wasm
 
 repalette: main.c repalette.c stb_image.h stb_image_write.h
 	$(CC) -o $@ main.c repalette.c $(CFLAGS) $(LDLIBS) $(NATIVE_FLAGS)
+
+benchmark: benchmark.c repalette.c stb_image.h
+	$(CC) -o $@ benchmark.c repalette.c $(CFLAGS) $(LDLIBS) $(NATIVE_FLAGS)
+
+benchmark_simd: benchmark_simd.c repalette_simd.c repalette.c stb_image.h
+	$(CC) -o $@ benchmark_simd.c repalette_simd.c repalette.c $(CFLAGS) $(LDLIBS) $(NATIVE_FLAGS)
 
 repalette.wasm: wasm_main.c repalette.c
 	$(CC) $(WASM_FLAGS) $(CFLAGS) -o $@ $^
