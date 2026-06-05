@@ -1,21 +1,30 @@
+#include <limits.h>
+
 #include "repalette.h"
 
-static void update_pixel(Image img, int x, int y, Color err, int mul, int div) {
+typedef int32_t i32x4 __attribute__((vector_size(16)));
+typedef uint8_t u8x4 __attribute__((vector_size(4)));
+
+static inline void update_pixel(Image img, int x, int y, Color err, int mul, int div) {
   if (x < 0 || x >= img.width) return;
-  size_t idx = img.channels * (y * img.width + x);
+  size_t idx = CHANNELS * (y * img.width + x);
 
-  // TODO: Vectorize pixel update
-  int r = img.pixels[idx + 0] + err.r * mul / div;
-  int g = img.pixels[idx + 1] + err.g * mul / div;
-  int b = img.pixels[idx + 2] + err.b * mul / div;
+  // One pixel is a 4-byte RGBA unit: load + widen the channels into a vector.
+  u8x4 bytes;
+  __builtin_memcpy(&bytes, img.pixels + idx, sizeof bytes);
+  i32x4 pix = __builtin_convertvector(bytes, i32x4);
 
-  r = r < 0 ? 0 : (r > 255 ? 255 : r);
-  g = g < 0 ? 0 : (g > 255 ? 255 : g);
-  b = b < 0 ? 0 : (b > 255 ? 255 : b);
+  i32x4 e = {err.r, err.g, err.b, 0};  // alpha error is 0, so alpha is unchanged
+  i32x4 out = pix + e * mul / div;
 
-  img.pixels[idx + 0] = r;
-  img.pixels[idx + 1] = g;
-  img.pixels[idx + 2] = b;
+  // Clamp each lane to [0, 255] branchlessly (mask is -1 / 0 per lane).
+  i32x4 under = out < 0;
+  out = out & ~under;
+  i32x4 over = out > 255;
+  out = (255 & over) | (out & ~over);
+
+  bytes = __builtin_convertvector(out, u8x4);
+  __builtin_memcpy(img.pixels + idx, &bytes, sizeof bytes);
 }
 
 static void dither_floyd_steinberg(Image img, int x, int y, Color err) {
@@ -94,39 +103,61 @@ static void dither_none(Image img, int x, int y, Color err) {
   (void)err;
 }
 
+static int find_nearest(Palette palette, Color c) {
+  i32x4 vmin = {INT_MAX, INT_MAX, INT_MAX, INT_MAX};
+  i32x4 vlane = {0, 1, 2, 3};
+  i32x4 vbest = vlane;
+
+  for (size_t i = 0; i < palette.size; i += 4) {
+    i32x4 pr, pg, pb;
+    __builtin_memcpy(&pr, &palette.rs[i], sizeof pr);
+    __builtin_memcpy(&pg, &palette.gs[i], sizeof pg);
+    __builtin_memcpy(&pb, &palette.bs[i], sizeof pb);
+
+    i32x4 dr = c.r - pr;
+    i32x4 dg = c.g - pg;
+    i32x4 db = c.b - pb;
+    i32x4 diff = dr * dr + dg * dg + db * db;
+
+    // Lanes where this group beats the running min (mask is -1 / 0 per lane).
+    i32x4 m = diff < vmin;
+    vmin = (diff & m) | (vmin & ~m);
+    vbest = (vlane & m) | (vbest & ~m);
+    vlane += 4;
+  }
+
+  int min_diff = vmin[0];
+  int best = vbest[0];
+  for (int k = 1; k < 4; ++k) {
+    if (vmin[k] < min_diff || (vmin[k] == min_diff && vbest[k] < best)) {
+      min_diff = vmin[k];
+      best = vbest[k];
+    }
+  }
+
+  return best;
+}
+
 #define DEFINE_RECOLOR(name, dither)                                          \
-  static void name(Image img, Color *palette, size_t palette_size) {          \
+  static void name(Image img, Palette palette) {                              \
     for (int y = 0; y < img.height; ++y) {                                    \
       for (int x = 0; x < img.width; ++x) {                                   \
-        const size_t idx = (img.channels * (y * img.width + x));              \
+        const size_t idx = (CHANNELS * (y * img.width + x));                  \
                                                                               \
         Color old_color = {                                                   \
           img.pixels[idx], img.pixels[idx + 1], img.pixels[idx + 2]};         \
                                                                               \
-        Color error;                                                          \
+        int best = find_nearest(palette, old_color);                          \
                                                                               \
-        int min_diff = -1;                                                    \
+        Color error = {                                                       \
+          old_color.r - palette.rs[best],                                     \
+          old_color.g - palette.gs[best],                                     \
+          old_color.b - palette.bs[best],                                     \
+        };                                                                    \
                                                                               \
-        /* TODO: Vectorize best color selection */                            \
-        for (Color *color = palette; color != palette + palette_size;         \
-             ++color) {                                                       \
-          int dr = old_color.r - color->r;                                    \
-          int dg = old_color.g - color->g;                                    \
-          int db = old_color.b - color->b;                                    \
-                                                                              \
-          int diff = dr * dr + dg * dg + db * db;                             \
-          if (min_diff == -1 || diff < min_diff) {                            \
-            min_diff = diff;                                                  \
-                                                                              \
-            img.pixels[idx + 0] = color->r;                                   \
-            img.pixels[idx + 1] = color->g;                                   \
-            img.pixels[idx + 2] = color->b;                                   \
-                                                                              \
-            error.r = dr;                                                     \
-            error.g = dg;                                                     \
-            error.b = db;                                                     \
-          }                                                                   \
-        }                                                                     \
+        img.pixels[idx + 0] = palette.rs[best];                               \
+        img.pixels[idx + 1] = palette.gs[best];                               \
+        img.pixels[idx + 2] = palette.bs[best];                               \
                                                                               \
         dither(img, x, y, error);                                             \
       }                                                                       \
@@ -141,14 +172,14 @@ DEFINE_RECOLOR(recolor_burkes, dither_burkes)
 DEFINE_RECOLOR(recolor_sierra, dither_sierra)
 DEFINE_RECOLOR(recolor_sierra_lite, dither_sierra_lite)
 
-void recolor(Image img, Color *palette, size_t palette_size, Ditherer dither) {
+void recolor(Image img, Palette palette, Ditherer dither) {
   switch (dither) {
-    case NONE: recolor_none(img, palette, palette_size); break;
-    case FLOYD_STEINBERG: recolor_floyd_steinberg(img, palette, palette_size); break;
-    case ATKINSON: recolor_atkinson(img, palette, palette_size); break;
-    case JJN: recolor_jjn(img, palette, palette_size); break;
-    case BURKES: recolor_burkes(img, palette, palette_size); break;
-    case SIERRA: recolor_sierra(img, palette, palette_size); break;
-    case SIERRA_LITE: recolor_sierra_lite(img, palette, palette_size); break;
+    case NONE: recolor_none(img, palette); break;
+    case FLOYD_STEINBERG: recolor_floyd_steinberg(img, palette); break;
+    case ATKINSON: recolor_atkinson(img, palette); break;
+    case JJN: recolor_jjn(img, palette); break;
+    case BURKES: recolor_burkes(img, palette); break;
+    case SIERRA: recolor_sierra(img, palette); break;
+    case SIERRA_LITE: recolor_sierra_lite(img, palette); break;
   }
 }

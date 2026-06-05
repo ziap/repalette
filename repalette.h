@@ -7,18 +7,28 @@
 typedef uint8_t u8;
 typedef uint32_t Hex;
 
+// Images are fixed to 4 channels (RGBA) so each pixel is one 32-bit unit.
+#define CHANNELS 4
+
 typedef struct {
   int r;
   int g;
   int b;
 } Color;
 
-// TODO: Force image to have 4 channels
+typedef struct {
+  int *buffer;
+  size_t size;
+
+  const int *rs;
+  const int *gs;
+  const int *bs;
+} Palette;
+
 typedef struct {
   u8* pixels;
   int width;
   int height;
-  int channels;
 } Image;
 
 typedef enum {
@@ -31,6 +41,6 @@ typedef enum {
   SIERRA_LITE,
 } Ditherer;
 
-extern void recolor(Image, Color*, size_t, Ditherer);
+extern void recolor(Image, Palette, Ditherer);
 
 #endif

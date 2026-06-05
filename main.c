@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "repalette_simd.h"
+#include "repalette.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -231,7 +231,7 @@ int main(int argc, char** argv) {
     return errno;
   }
 
-  recolor_simd(img, opt.palette, opt.dither);
+  recolor(img, opt.palette, opt.dither);
 
   stbi_write_png(
     opt.output_file, img.width, img.height, CHANNELS, img.pixels,
