@@ -1,4 +1,4 @@
-#include "repalette_simd.h"
+#include "repalette.h"
 
 #define export extern __attribute__((visibility("default")))
 #define PAGE 65536
@@ -70,5 +70,5 @@ export void update_canvas(int width, int height, Ditherer ditherer) {
 
   Image img = { pixels, width, height };
 
-  recolor_simd(img, palette, ditherer);
+  recolor(img, palette, ditherer);
 }
