@@ -1,4 +1,4 @@
-#include "repalette.h"
+#include "repalette_simd.h"
 
 #define export extern __attribute__((visibility("default")))
 #define PAGE 65536
@@ -17,29 +17,58 @@ static void resize(size_t new_size) {
   }
 }
 
-size_t palette_size;
+struct {
+  int size;
+  int capacity;
 
-export void palette_clear(void) { palette_size = 0; }
+  int *rs;
+  int *gs;
+  int *bs;
+} state;
+
+export void palette_init(int capacity) {
+  int padded_capacity = (capacity + 3) / 4 * 4;
+  state.size = 0;
+  state.capacity = padded_capacity;
+
+  resize(padded_capacity * 3 * sizeof(int));
+  state.rs = (int*)memory + 0 * padded_capacity;
+  state.gs = (int*)memory + 1 * padded_capacity;
+  state.bs = (int*)memory + 2 * padded_capacity;
+}
 
 export void palette_add(u8 red, u8 green, u8 blue) {
-  resize((palette_size + 1) * sizeof(Color));
+  state.rs[state.size] = red;
+  state.gs[state.size] = green;
+  state.bs[state.size] = blue;
 
-  Color c = {red, green, blue};
-  ((Color *)memory)[palette_size++] = c;
+  state.size += 1;
 }
 
 export u8 *get_pixels(int width, int height) {
-  resize(4 * width * height + palette_size * sizeof(Color));
-  return memory + palette_size * sizeof(Color);
+  size_t offset = state.capacity * 3 * sizeof(int);
+  resize(4 * width * height + offset);
+  return memory + offset;
 }
 
 export void update_canvas(int width, int height, Ditherer ditherer) {
-  if (palette_size == 0) return;
+  if (state.size == 0) return;
+  for (int i = state.size; i < state.capacity; ++i) {
+    state.rs[i] = state.rs[state.size - 1];
+    state.gs[i] = state.gs[state.size - 1];
+    state.bs[i] = state.bs[state.size - 1];
+  }
 
-  u8 *pixels = memory + palette_size * sizeof(Color);
-  Color *palette = (Color *)memory;
+  u8 *pixels = memory + state.capacity * 3 * sizeof(int);
+  Palette palette = {
+    .buffer = NULL,
+    .size = state.capacity,
+    .rs = state.rs,
+    .gs = state.gs,
+    .bs = state.bs,
+  };
 
-  Image img = {pixels, width, height, 4};
+  Image img = { pixels, width, height };
 
-  recolor(img, palette, palette_size, ditherer);
+  recolor_simd(img, palette, ditherer);
 }
