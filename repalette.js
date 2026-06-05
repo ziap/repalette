@@ -167,8 +167,10 @@ WebAssembly.instantiateStreaming(fetch("./repalette.wasm")).then(wasm => {
   processButton.addEventListener('click', () => {
     ctx.putImageData(originalImageData, 0, 0)
 
-    exports.palette_clear()
-    for (const color of document.querySelectorAll('.color-input')) {
+    const colors = Array.from(document.querySelectorAll('.color-input'))
+    exports.palette_init(colors.length)
+
+    for (const color of colors) {
       const [r, g, b] = Hex2RGB(color.value)
       exports.palette_add(r, g, b)
     }
