@@ -1,9 +1,21 @@
-use std::ffi::CString;
+use std::ffi::{CString, c_char};
 use std::path::Path;
 
 use clap::Parser;
 use image::{DynamicImage, ImageError, ImageReader};
 use image::error::UnsupportedErrorKind;
+
+unsafe extern "C" {
+  fn repalette_process(
+    pixels: *mut u8,
+    width: i32,
+    height: i32,
+    palette: *const c_char,
+    dither: *const c_char,
+  ) -> i32;
+
+  fn repalette_help();
+}
 
 #[derive(Parser, Debug)]
 #[command(disable_help_flag = true)]
@@ -21,15 +33,11 @@ struct Args {
   help: bool,
 }
 
-fn help() {
-  unimplemented!("TODO: print help from C");
-}
-
 fn main() {
   let args = Args::parse();
 
   if args.help {
-    help();
+    unsafe { repalette_help() };
     return;
   }
 
@@ -64,16 +72,25 @@ fn main() {
 
   let width = image.width();
   let height = image.height();
-  let pixels = image.into_raw();
+  let mut pixels = image.into_raw();
 
-  // TODO: recolor `pixels` in place via the C core, e.g.
-  //   repalette_process(pixels.as_mut_ptr(), width, height,
-  //                     args.palette.as_ptr(), args.dither.as_ptr())
-  let _ = (&args.palette, &args.dither);
+  let status = unsafe {
+    repalette_process(
+      pixels.as_mut_ptr(),
+      width as i32,
+      height as i32,
+      args.palette.as_ptr(),
+      args.dither.as_ptr(),
+    )
+  };
+
+  if status != 0 {
+    std::process::exit(1);
+  }
 
   let image = image::RgbaImage::from_raw(width, height, pixels).unwrap();
 
-let result = match image.save(output) {
+  let result = match image.save(output) {
     Err(ImageError::Unsupported(e))
       if matches!(e.kind(), UnsupportedErrorKind::Color(_)) =>
     {
