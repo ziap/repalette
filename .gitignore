@@ -2,3 +2,7 @@ stb_image.h
 stb_image_write.h
 repalette
 test.jpg
+
+target
+.rustup
+.cargo
