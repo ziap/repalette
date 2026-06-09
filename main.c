@@ -29,34 +29,15 @@ typedef struct {
 } Options;
 
 int parse_dither(const char* param, Ditherer* dither) {
-  if (strcmp(param, "none") == 0) {
-    *dither = NONE;
-    return 0;
+#define X(e)                                 \
+  if (strcmp(param, dither_names[e]) == 0) { \
+    *dither = e;                             \
+    return 0;                                \
   }
-  if (strcmp(param, "floyd-steinberg") == 0) {
-    *dither = FLOYD_STEINBERG;
-    return 0;
-  }
-  if (strcmp(param, "atkinson") == 0) {
-    *dither = ATKINSON;
-    return 0;
-  }
-  if (strcmp(param, "jjn") == 0) {
-    *dither = JJN;
-    return 0;
-  }
-  if (strcmp(param, "burkes") == 0) {
-    *dither = BURKES;
-    return 0;
-  }
-  if (strcmp(param, "sierra") == 0) {
-    *dither = SIERRA;
-    return 0;
-  }
-  if (strcmp(param, "sierra-lite") == 0) {
-    *dither = SIERRA_LITE;
-    return 0;
-  }
+
+  DITHERERS(X)
+#undef X
+
   fprintf(stderr, "ERROR: Unknown dithering strategy \"%s\"\n", param);
   return 1;
 }
@@ -123,10 +104,22 @@ int parse_arguments(int argc, char** argv, Options* opt) {
       printf("\n");
       printf("OPTIONS:\n");
       printf("  -p, --palette COLOR[,COLOR...]\n");
-      printf(
-        "  -d, --dither  none | floyd-steinberg | atkinson | jjn | burkes | "
-        "sierra | sierra-lite\n"
-      );
+      printf("  -d, --dither <ditherer>\n");
+      printf("\n");
+      printf("DITHERER: %s", dither_names[0]);
+      for (int i = 1; i < DITHER_COUNT; ++i) {
+        printf(" | %s", dither_names[i]);
+      }
+      printf("\n");
+      int maxlen = strlen(dither_names[0]);
+      for (int i = 1; i < DITHER_COUNT; ++i) {
+        int len = strlen(dither_names[i]);
+        if (len > maxlen) maxlen = len;
+      }
+      for (int i = 0; i < DITHER_COUNT; ++i) {
+        printf("  %-*s - %s\n", maxlen, dither_names[i], dither_display_names[i]);
+      }
+      printf("\n");
       return 1;
     }
   } else {

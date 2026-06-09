@@ -1,4 +1,4 @@
-CC?=clang
+CC=clang
 CFLAGS=-O3 -Wall -Wextra -pedantic -std=c99
 LDLIBS=-lm
 

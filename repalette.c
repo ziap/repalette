@@ -5,7 +5,7 @@
 typedef int32_t i32x4 __attribute__((vector_size(16)));
 typedef uint8_t u8x4 __attribute__((vector_size(4)));
 
-static inline void update_pixel(Image img, int x, int y, Color err, int mul, int div) {
+static inline void update_pixel(Image img, int x, int y, i32x4 err, int mul, int div) {
   if (x < 0 || x >= img.width) return;
   size_t idx = CHANNELS * (y * img.width + x);
 
@@ -14,8 +14,7 @@ static inline void update_pixel(Image img, int x, int y, Color err, int mul, int
   __builtin_memcpy(&bytes, img.pixels + idx, sizeof bytes);
   i32x4 pix = __builtin_convertvector(bytes, i32x4);
 
-  i32x4 e = {err.r, err.g, err.b, 0};  // alpha error is 0, so alpha is unchanged
-  i32x4 out = pix + e * mul / div;
+  i32x4 out = pix + err * mul / div;
 
   // Clamp each lane to [0, 255] branchlessly (mask is -1 / 0 per lane).
   i32x4 under = out < 0;
@@ -27,15 +26,18 @@ static inline void update_pixel(Image img, int x, int y, Color err, int mul, int
   __builtin_memcpy(img.pixels + idx, &bytes, sizeof bytes);
 }
 
-static void dither_floyd_steinberg(Image img, int x, int y, Color err) {
+#define DEFINE_DITHER(name, body) \
+  static void dither_##name(Image img, int x, int y, i32x4 err) body
+
+DEFINE_DITHER(FLOYD_STEINBERG, {
   update_pixel(img, x + 1, y + 0, err, 7, 16);
   if (y + 1 >= img.height) return;
   update_pixel(img, x - 1, y + 1, err, 3, 16);
   update_pixel(img, x + 0, y + 1, err, 5, 16);
   update_pixel(img, x + 1, y + 1, err, 1, 16);
-}
+})
 
-static void dither_atkinson(Image img, int x, int y, Color err) {
+DEFINE_DITHER(ATKINSON, {
   update_pixel(img, x + 1, y + 0, err, 1, 8);
   update_pixel(img, x + 2, y + 0, err, 1, 8);
   if (y + 1 >= img.height) return;
@@ -44,9 +46,9 @@ static void dither_atkinson(Image img, int x, int y, Color err) {
   update_pixel(img, x + 1, y + 1, err, 1, 8);
   if (y + 2 >= img.height) return;
   update_pixel(img, x + 1, y + 2, err, 1, 8);
-}
+})
 
-static void dither_jjn(Image img, int x, int y, Color err) {
+DEFINE_DITHER(JJN, {
   update_pixel(img, x + 1, y + 0, err, 7, 48);
   update_pixel(img, x + 2, y + 0, err, 5, 48);
   if (y + 1 >= img.height) return;
@@ -61,9 +63,9 @@ static void dither_jjn(Image img, int x, int y, Color err) {
   update_pixel(img, x + 0, y + 2, err, 5, 48);
   update_pixel(img, x + 1, y + 2, err, 3, 48);
   update_pixel(img, x + 2, y + 2, err, 1, 48);
-}
+})
 
-static void dither_burkes(Image img, int x, int y, Color err) {
+DEFINE_DITHER(BURKES, {
   update_pixel(img, x + 1, y + 0, err, 8, 32);
   update_pixel(img, x + 2, y + 0, err, 4, 32);
   if (y + 1 >= img.height) return;
@@ -72,9 +74,9 @@ static void dither_burkes(Image img, int x, int y, Color err) {
   update_pixel(img, x + 0, y + 1, err, 8, 32);
   update_pixel(img, x + 1, y + 1, err, 4, 32);
   update_pixel(img, x + 2, y + 1, err, 2, 32);
-}
+})
 
-static void dither_sierra(Image img, int x, int y, Color err) {
+DEFINE_DITHER(SIERRA32, {
   update_pixel(img, x + 1, y + 0, err, 5, 32);
   update_pixel(img, x + 2, y + 0, err, 3, 32);
   if (y + 1 >= img.height) return;
@@ -87,21 +89,21 @@ static void dither_sierra(Image img, int x, int y, Color err) {
   update_pixel(img, x - 1, y + 2, err, 2, 32);
   update_pixel(img, x + 0, y + 2, err, 3, 32);
   update_pixel(img, x + 1, y + 2, err, 2, 32);
-}
+})
 
-static void dither_sierra_lite(Image img, int x, int y, Color err) {
+DEFINE_DITHER(SIERRA4, {
   update_pixel(img, x + 1, y + 0, err, 2, 4);
   if (y + 1 >= img.height) return;
   update_pixel(img, x - 1, y + 1, err, 1, 4);
   update_pixel(img, x + 0, y + 1, err, 1, 4);
-}
+})
 
-static void dither_none(Image img, int x, int y, Color err) {
+DEFINE_DITHER(NONE, {
   (void)img;
   (void)x;
   (void)y;
   (void)err;
-}
+})
 
 static int find_nearest(Palette palette, Color c) {
   i32x4 vmin = {INT_MAX, INT_MAX, INT_MAX, INT_MAX};
@@ -138,48 +140,65 @@ static int find_nearest(Palette palette, Color c) {
   return best;
 }
 
-#define DEFINE_RECOLOR(name, dither)                                          \
-  static void name(Image img, Palette palette) {                              \
-    for (int y = 0; y < img.height; ++y) {                                    \
-      for (int x = 0; x < img.width; ++x) {                                   \
-        const size_t idx = (CHANNELS * (y * img.width + x));                  \
-                                                                              \
-        Color old_color = {                                                   \
-          img.pixels[idx], img.pixels[idx + 1], img.pixels[idx + 2]};         \
-                                                                              \
-        int best = find_nearest(palette, old_color);                          \
-                                                                              \
-        Color error = {                                                       \
-          old_color.r - palette.rs[best],                                     \
-          old_color.g - palette.gs[best],                                     \
-          old_color.b - palette.bs[best],                                     \
-        };                                                                    \
-                                                                              \
-        img.pixels[idx + 0] = palette.rs[best];                               \
-        img.pixels[idx + 1] = palette.gs[best];                               \
-        img.pixels[idx + 2] = palette.bs[best];                               \
-                                                                              \
-        dither(img, x, y, error);                                             \
-      }                                                                       \
-    }                                                                         \
+#define X(name)                                            \
+  static void recolor_##name(Image img, Palette palette) { \
+    for (int y = 0; y < img.height; ++y) {                 \
+      for (int x = 0; x < img.width; ++x) {                \
+        size_t idx = CHANNELS * (y * img.width + x);       \
+                                                           \
+        Color old_color = {                                \
+          img.pixels[idx + 0],                             \
+          img.pixels[idx + 1],                             \
+          img.pixels[idx + 2],                             \
+        };                                                 \
+                                                           \
+        int best = find_nearest(palette, old_color);       \
+                                                           \
+        i32x4 error = {                                    \
+          old_color.r - palette.rs[best],                  \
+          old_color.g - palette.gs[best],                  \
+          old_color.b - palette.bs[best],                  \
+          0,                                               \
+        };                                                 \
+                                                           \
+        img.pixels[idx + 0] = palette.rs[best];            \
+        img.pixels[idx + 1] = palette.gs[best];            \
+        img.pixels[idx + 2] = palette.bs[best];            \
+                                                           \
+        dither_##name(img, x, y, error);                   \
+      }                                                    \
+    }                                                      \
   }
 
-DEFINE_RECOLOR(recolor_none, dither_none)
-DEFINE_RECOLOR(recolor_floyd_steinberg, dither_floyd_steinberg)
-DEFINE_RECOLOR(recolor_atkinson, dither_atkinson)
-DEFINE_RECOLOR(recolor_jjn, dither_jjn)
-DEFINE_RECOLOR(recolor_burkes, dither_burkes)
-DEFINE_RECOLOR(recolor_sierra, dither_sierra)
-DEFINE_RECOLOR(recolor_sierra_lite, dither_sierra_lite)
+DITHERERS(X)
+#undef X
 
 void recolor(Image img, Palette palette, Ditherer dither) {
   switch (dither) {
-    case NONE: recolor_none(img, palette); break;
-    case FLOYD_STEINBERG: recolor_floyd_steinberg(img, palette); break;
-    case ATKINSON: recolor_atkinson(img, palette); break;
-    case JJN: recolor_jjn(img, palette); break;
-    case BURKES: recolor_burkes(img, palette); break;
-    case SIERRA: recolor_sierra(img, palette); break;
-    case SIERRA_LITE: recolor_sierra_lite(img, palette); break;
+    #define X(e) case e: recolor_##e(img, palette); break;
+    DITHERERS(X)
+    #undef X
+    case DITHER_INVALID: break;
+    case DITHER_COUNT: __builtin_unreachable(); break;
   }
 }
+
+const char **dither_names = (const char*[]){
+  [NONE] = "none",
+  [FLOYD_STEINBERG] = "fs",
+  [ATKINSON] = "atkinson",
+  [JJN] = "jjn",
+  [BURKES] = "burkes",
+  [SIERRA32] = "sierra32",
+  [SIERRA4] = "sierra4",
+};
+
+const char **dither_display_names = (const char*[]) {
+  [NONE] = "No dithering",
+  [FLOYD_STEINBERG] = "Floyd-Steinberg",
+  [ATKINSON] = "Atkinson",
+  [JJN] = "Jarvis, Judice, and Ninke",
+  [BURKES] = "Burkes",
+  [SIERRA32] = "Sierra",
+  [SIERRA4] = "Sierra Lite",
+};

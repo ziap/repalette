@@ -123,22 +123,22 @@ paletteExport.addEventListener('blur', e => {
   for (const line of e.target.value.split('\n')) if (isHex(line)) addColor(line)
 })
 
-const paletteSelector = document.querySelector('#palette-select')
-const option = paletteSelector.querySelector('option')
-
 fetch('https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json').then(async response => {
   const data = await response.json()
 
-  option.textContent = 'Select palette'
+  const paletteSelector = document.querySelector('#palette-select')
+  paletteSelector.querySelector('option').textContent = 'Select palette'
 
   const themes = new Array(data.length)
   for (let i = 0; i < data.length; ++i) {
     const {name} = data[i]
 
     const palette = new Set()
-    for (const value of Object.values(data[i])) if (isHex(value)) palette.add(value)
+    for (const value of Object.values(data[i])) {
+      if (isHex(value)) palette.add(value)
+    }
 
-    themes[i] = { name, palette }
+    themes[i] = { name, palette: Array.from(palette) }
 
     const option = document.createElement('option')
     option.value = i
@@ -163,6 +163,26 @@ WebAssembly.instantiateStreaming(fetch("./repalette.wasm")).then(wasm => {
   const { exports } = wasm.instance
 
   const ditherSelect = document.querySelector('#dither-select')
+  ditherSelect.querySelector('option').remove()
+
+  const textDecoder = new TextDecoder()
+  function cstr(ptr) {
+    const buffer = new Uint8Array(exports.memory.buffer, ptr)
+    let len = 0
+    while (buffer[len] !== 0) len += 1;
+    return textDecoder.decode(buffer.subarray(0, len))
+  }
+
+  for (let i = 0; i < exports.ditherer_count(); ++i) {
+    const name = cstr(exports.ditherer_display(i))
+
+    const option = document.createElement('option')
+    option.value = i
+    option.textContent = name
+    option.selected = i === 1
+
+    ditherSelect.appendChild(option)
+  }
 
   processButton.addEventListener('click', () => {
     ctx.putImageData(originalImageData, 0, 0)

@@ -26,6 +26,14 @@ struct {
   int *bs;
 } state;
 
+export int ditherer_count(void) {
+  return DITHER_COUNT;
+}
+
+export const char *ditherer_display(Ditherer ditherer) {
+  return dither_display_names[ditherer];
+}
+
 export void palette_init(int capacity) {
   int padded_capacity = (capacity + 3) / 4 * 4;
   state.size = 0;
