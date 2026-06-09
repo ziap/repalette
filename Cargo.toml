@@ -9,3 +9,8 @@ cc = "1.2.63"
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
 image = "0.25.10"
+
+[profile.release]
+strip = true
+lto = true
+panic = "abort"

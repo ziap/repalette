@@ -4,9 +4,9 @@ cmd="./repalette test.jpg output.png -p 3b4252,bf616a,a3be8c,ebcb8b,81a1c1,b48ea
 
 hyperfine --warmup 3 --prepare "rm -f output.png" \
   "$cmd --dither none" \
-  "$cmd --dither floyd-steinberg" \
+  "$cmd --dither fs" \
   "$cmd --dither atkinson" \
   "$cmd --dither jjn" \
   "$cmd --dither burkes" \
-  "$cmd --dither sierra" \
-  "$cmd --dither sierra-lite"
+  "$cmd --dither sierra32" \
+  "$cmd --dither sierra4"

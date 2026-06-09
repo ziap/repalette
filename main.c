@@ -1,16 +1,10 @@
-#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "repalette.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
-
-Color from_hex(Hex hex) {
+static Color from_hex(Hex hex) {
   Color c;
 
   c.r = (hex & 0xff0000) >> 16;
@@ -20,15 +14,7 @@ Color from_hex(Hex hex) {
   return c;
 }
 
-typedef struct {
-  const char* input_file;
-  const char* output_file;
-
-  Palette palette;
-  Ditherer dither;
-} Options;
-
-int parse_dither(const char* param, Ditherer* dither) {
+static int parse_dither(const char* param, Ditherer* dither) {
 #define X(e)                                 \
   if (strcmp(param, dither_names[e]) == 0) { \
     *dither = e;                             \
@@ -42,20 +28,19 @@ int parse_dither(const char* param, Ditherer* dither) {
   return 1;
 }
 
-int parse_palette(const char *param, Palette *palette) {
+static int parse_palette(const char* param, Palette* palette) {
   size_t size = 1;
   for (const char* c = param; *c != '\0'; ++c) {
     if (*c == ',') ++size;
   }
 
   palette->size = (size + 3) / 4 * 4;
-
-  if (palette->buffer) free(palette->buffer);
   palette->buffer = malloc(3 * palette->size * sizeof(int));
+  if (!palette->buffer) return 1;
 
-  int *rs = palette->buffer + 0 * palette->size;
-  int *gs = palette->buffer + 1 * palette->size;
-  int *bs = palette->buffer + 2 * palette->size;
+  int* rs = palette->buffer + 0 * palette->size;
+  int* gs = palette->buffer + 1 * palette->size;
+  int* bs = palette->buffer + 2 * palette->size;
 
   size = 0;
   Hex hex = 0;
@@ -77,7 +62,7 @@ int parse_palette(const char *param, Palette *palette) {
     else if (*c >= 'A' && *c <= 'F')
       hex += *c - 'A' + 10;
     else {
-      fprintf(stderr, "ERROR: Unsuppored character '%c' in color\n", *c);
+      fprintf(stderr, "ERROR: Unsupported character '%c' in color\n", *c);
       return 1;
     }
   }
@@ -95,152 +80,69 @@ int parse_palette(const char *param, Palette *palette) {
   return 0;
 }
 
-int parse_arguments(int argc, char** argv, Options* opt) {
-  if (argc > 1) {
-    if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-      printf("USAGE:\n");
-      printf("  %s -h | --help\n", argv[0]);
-      printf("  %s <input file> <output file> [options]\n", argv[0]);
-      printf("\n");
-      printf("OPTIONS:\n");
-      printf("  -p, --palette COLOR[,COLOR...]\n");
-      printf("  -d, --dither <ditherer>\n");
-      printf("\n");
-      printf("DITHERER: %s", dither_names[0]);
-      for (int i = 1; i < DITHER_COUNT; ++i) {
-        printf(" | %s", dither_names[i]);
-      }
-      printf("\n");
-      int maxlen = strlen(dither_names[0]);
-      for (int i = 1; i < DITHER_COUNT; ++i) {
-        int len = strlen(dither_names[i]);
-        if (len > maxlen) maxlen = len;
-      }
-      for (int i = 0; i < DITHER_COUNT; ++i) {
-        printf("  %-*s - %s\n", maxlen, dither_names[i], dither_display_names[i]);
-      }
-      printf("\n");
-      return 1;
-    }
-  } else {
-    fprintf(stderr, "ERROR: input file not provided\n");
-    return -1;
-  }
-  if (argc <= 2) {
-    fprintf(stderr, "ERROR: output file not provided\n");
-    return -1;
+static int default_palette(Palette* palette) {
+  palette->size = 4;
+  palette->buffer = malloc(3 * palette->size * sizeof(int));
+  if (!palette->buffer) return 1;
+
+  int* rs = palette->buffer + 0 * palette->size;
+  int* gs = palette->buffer + 1 * palette->size;
+  int* bs = palette->buffer + 2 * palette->size;
+
+  rs[0] = gs[0] = bs[0] = 0x00;
+  for (size_t i = 1; i < palette->size; ++i) {
+    rs[i] = gs[i] = bs[i] = 0xff;
   }
 
-  *opt = (Options) {
-    .input_file = argv[1],
-    .output_file = argv[2],
-    .dither = FLOYD_STEINBERG,
-
-    .palette = (Palette) {
-      .size = 0,
-      .buffer = NULL,
-      .rs = NULL,
-      .gs = NULL,
-      .bs = NULL,
-    },
-  };
-
-  for (int i = 3; i < argc; i += 2) {
-    if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--dither") == 0) {
-      if (i == argc - 1) {
-        fprintf(
-          stderr, "ERROR: parameter required for argument \"%s\"\n", argv[i]
-        );
-        return -1;
-      }
-
-      if (parse_dither(argv[i + 1], &opt->dither)) return -1;
-
-      continue;
-    }
-    if (strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--palette") == 0) {
-      if (i == argc - 1) {
-        fprintf(
-          stderr, "ERROR: parameter required for argument \"%s\"\n", argv[i]
-        );
-        return -1;
-      }
-
-      if (parse_palette(argv[i + 1], &opt->palette))
-        return -1;
-      continue;
-    }
-    fprintf(stderr, "ERROR: Unknown argument \"%s\"\n", argv[i]);
-    return -1;
-  }
-
-  if (opt->palette.size == 0) {
-    opt->palette.size = 4;
-
-    if (opt->palette.buffer) free(opt->palette.buffer);
-    opt->palette.buffer = malloc(12 * sizeof(int));
-
-    int *rs = opt->palette.buffer + 0;
-    int *gs = opt->palette.buffer + 4;
-    int *bs = opt->palette.buffer + 8;
-
-    rs[0] = 0x00;
-    gs[0] = 0x00;
-    bs[0] = 0x00;
-
-    for (size_t i = 1; i < opt->palette.size; ++i) {
-      rs[i] = 0xff;
-      gs[i] = 0xff;
-      bs[i] = 0xff;
-    }
-
-    opt->palette.rs = rs;
-    opt->palette.gs = gs;
-    opt->palette.bs = bs;
-  }
+  palette->rs = rs;
+  palette->gs = gs;
+  palette->bs = bs;
   return 0;
 }
 
-int main(int argc, char** argv) {
-  Options opt = {0};
-
-  int status = parse_arguments(argc, argv, &opt);
-  if (status != 0) {
-    if (opt.palette.buffer) free(opt.palette.buffer);
-    return status < 0;
+int repalette_process(u8* pixels, int width, int height, const char* palette, const char* dither) {
+  Ditherer ditherer = FLOYD_STEINBERG;
+  if (dither && *dither) {
+    if (parse_dither(dither, &ditherer)) return 1;
   }
 
-  Image img;
-
-  int n;
-  img.pixels = stbi_load(opt.input_file, &img.width, &img.height, &n, CHANNELS);
-
-  if (img.pixels == NULL) {
-    fprintf(
-      stderr, "ERROR: Can't load image %s: %s\n", opt.input_file,
-      strerror(errno)
-    );
-    free(opt.palette.buffer);
-    return errno;
+  Palette pal = {0};
+  if (palette && *palette) {
+    if (parse_palette(palette, &pal)) return 1;
+  } else if (default_palette(&pal)) {
+    return 1;
   }
 
-  recolor(img, opt.palette, opt.dither);
+  Image img = {pixels, width, height};
+  recolor(img, pal, ditherer);
 
-  stbi_write_png(
-    opt.output_file, img.width, img.height, CHANNELS, img.pixels,
-    img.width * CHANNELS
-  );
-  if (errno) {
-    fprintf(
-      stderr, "ERROR: Failed to write image %s: %s\n", opt.output_file,
-      strerror(errno)
-    );
-    free(opt.palette.buffer);
-    free(img.pixels);
-    return errno;
-  }
-
-  free(opt.palette.buffer);
-  free(img.pixels);
+  free(pal.buffer);
   return 0;
+}
+
+void repalette_help(void) {
+  printf("USAGE:\n");
+  printf("  repalette -h | --help\n");
+  printf("  repalette <input file> <output file> [options]\n");
+  printf("\n");
+  printf("OPTIONS:\n");
+  printf("  -p, --palette COLOR[,COLOR...]\n");
+  printf("  -d, --dither <ditherer>\n");
+  printf("\n");
+
+  printf("DITHERER: %s", dither_names[0]);
+  for (int i = 1; i < DITHER_COUNT; ++i) {
+    printf(" | %s", dither_names[i]);
+  }
+  printf("\n");
+
+  int maxlen = strlen(dither_names[0]);
+  for (int i = 1; i < DITHER_COUNT; ++i) {
+    int len = strlen(dither_names[i]);
+    if (len > maxlen) maxlen = len;
+  }
+  for (int i = 0; i < DITHER_COUNT; ++i) {
+    printf("  %-*s - %s\n", maxlen, dither_names[i], dither_display_names[i]);
+  }
+  printf("\n");
 }
