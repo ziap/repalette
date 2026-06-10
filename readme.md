@@ -1,14 +1,16 @@
 # Repalette
 
-Repalette is an image colorizer written in C. It is available as both a CLI
-utility and a web application.
+Repalette is an image colorizer written in C and Rust. It is available as both
+a CLI utility and a web application.
 
-![](logo.png)
+![](img/preview.png)
 
 ## Features
 
 - Recolor images using nearest neighbor search.
 - Optional dithering for smoother results.
+- SIMD accelerated palette search and dithering.
+ 
 
 **Web-version:**
 
@@ -19,52 +21,34 @@ utility and a web application.
 
 ## Benchmark
 
-- Processor: Intel® Core™ i5-8300H Processor
-- Input: 7680x4320 JPEG image
-- Color palette: [Nord](http://nordtheme.com/)
-- Average of 10 runs
-
-| Dithering algorithm       | Mean (s) | %slower |
-| ------------------------- | -------- | ------- |
-| No dithering              | 2.001    | 0       |
-| Floyd-Steinberg           | 3.514    | 75      |
-| Atkinson                  | 3.489    | 74      |
-| Jarvis, Judice, and Ninke | 4.367    | 118     |
-| Burkes                    | 3.891    | 94      |
-| Sierra                    | 4.337    | 116     |
-| Sierra lite               | 3.191    | 59      |
+(TBA)
 
 To run the benchmark yourself:
 
 - Install [hyperfine](https://github.com/sharkdp/hyperfine)
 - Build the CLI version
-- Put an image with the name `input.jpg` in the same directory as `benchmark.sh`
+- Put an image with the name `test.jpg` in the same directory as `benchmark.sh`
 - Run `./benchmark.sh`
 
 ## Building
 
 **You need:**
 
+- Both: Rust
 - For native build: Any C compiler that supports C99.
 - For WASM build: Clang, LLVM, and LLD.
-- GNU make.
 
-Build everything with Clang
-
-```
-make
-```
-
-Only build the native version with GCC
+Build the native version
 
 ```
-make repalette CC=gcc
+cargo build --release
 ```
 
-**Note:**
+Build the WASM version
 
-Repalette uses `stb_image` and `stb_image_write` for working with images.
-They're automatically downloaded as make dependencies using `curl`.
+```
+cargo build --release --features wasm
+```
 
 ## Usage
 
@@ -77,11 +61,20 @@ USAGE:
 
 OPTIONS:
   -p, --palette COLOR[,COLOR...]
-  -d, --dither  none | floyd-steinberg | atkinson | jjn | burkes | sierra | sierra-lite
+  -d, --dither <ditherer>
+
+DITHERER: none | fs | atkinson | jjn | burkes | sierra32 | sierra4
+  none     - No dithering
+  fs       - Floyd-Steinberg
+  atkinson - Atkinson
+  jjn      - Jarvis, Judice, and Ninke
+  burkes   - Burkes
+  sierra32 - Sierra
+  sierra4  - Sierra Lite
 ```
 
 - The default color palette is `000000,ffffff` (black and white)
-- The default dithering algorithm is `floyd-steinberg`
+- The default dithering algorithm is `fs` (Floyd-Steinberg)
 
 Example:
 
