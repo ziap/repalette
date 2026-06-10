@@ -85,15 +85,14 @@ fn main() {
   };
 
   if status != 0 {
-    std::process::exit(1);
+    std::process::exit(status);
   }
 
   let image = image::RgbaImage::from_raw(width, height, pixels).unwrap();
 
   let result = match image.save(output) {
-    Err(ImageError::Unsupported(e))
-      if matches!(e.kind(), UnsupportedErrorKind::Color(_)) =>
-    {
+    Err(ImageError::Unsupported(e)) 
+      if let UnsupportedErrorKind::Color(_) = e.kind() => {
       // Encoder rejected RGBA (e.g. JPEG) — drop alpha and retry as RGB.
       DynamicImage::ImageRgba8(image).into_rgb8().save(output)
     }
