@@ -3,6 +3,9 @@ name = "repalette"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+wasm = []
+
 [build-dependencies]
 cc = "1.2.63"
 
