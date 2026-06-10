@@ -45,11 +45,11 @@ fn main() {
     (None, _) => {
       eprintln!("ERROR: input file not provided");
       std::process::exit(1);
-    }
+    },
     (_, None) => {
       eprintln!("ERROR: output file not provided");
       std::process::exit(1);
-    }
+    },
     (Some(input), Some(output)) => (input, output),
   };
 
