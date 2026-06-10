@@ -32,7 +32,6 @@
       buildInputs = [
         pkgs.rustup
         pkgs.static-web-server
-        pkgs.hyperfine
       ] ++ builtins.attrValues ccPkgs;
 
       # Set the default target to the first available target

@@ -17,8 +17,8 @@ fn main() {
 
   cc::Build::new()
     .files([
-      "main.c",
-      "repalette.c",
+      "repalette-sys/main.c",
+      "repalette-sys/repalette.c",
     ])
     .std("c99")
     .opt_level(3)
@@ -55,8 +55,8 @@ fn build_wasm(args: &[&str]) {
     .args(args)
     .args(wasm_flags)
     .args(wasm_ldflags.iter().map(|flag| format!("-Wl,{flag}")))
-    .args(["-o", "repalette.wasm"])
-    .args(["wasm_main.c", "repalette.c"])
+    .args(["-o", "web/repalette.wasm"])
+    .args(["repalette-sys/wasm_main.c", "repalette-sys/repalette.c"])
     .status()
     .unwrap_or_else(|e| panic!("failed to invoke `{clang}` for the wasm build: {e}"));
 
