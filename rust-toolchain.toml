@@ -1,5 +1,5 @@
 [toolchain]
 channel = "stable-2026-05-28"
-components = [ "rust-analyzer" ]
+components = [ "rust-analyzer", "rustfmt" ]
 targets = [ "x86_64-unknown-linux-musl" ]
 profile = "minimal"

@@ -161,8 +161,8 @@ Standard:        Auto
 StatementMacros:
   - Q_UNUSED
   - QT_REQUIRE_VERSION
-TabWidth:        8
+TabWidth:        2
 UseCRLF:         false
-UseTab:          Never
+UseTab:          Always
 ...
 

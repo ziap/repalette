@@ -30,11 +30,13 @@
 
     in pkgs.mkShell {
       buildInputs = [
+        pkgs.clang-tools
         pkgs.rustup
         pkgs.static-web-server
         pkgs.llvmPackages.lld
         pkgs.wabt
         pkgs.binaryen
+        pkgs.deno
       ] ++ builtins.attrValues ccPkgs;
 
       # Set the default target to the first available target

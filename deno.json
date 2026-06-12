@@ -1,0 +1,36 @@
+{
+	"compilerOptions": {
+		"lib": ["deno.window", "deno.ns"]
+	},
+	"fmt": {
+		"useTabs": true,
+		"lineWidth": 80,
+		"indentWidth": 2,
+		"semiColons": false,
+		"singleQuote": true,
+		"proseWrap": "preserve",
+		"include": ["studio/src/", "studio/www/", "deno.json"]
+	},
+	"lint": {
+		"include": ["studio/src/"],
+		"rules": {
+			"tags": ["recommended"],
+			"include": [
+				"camelcase",
+				"eqeqeq",
+				"explicit-function-return-type",
+				"explicit-module-boundary-types",
+				"no-eval",
+				"no-sparse-arrays",
+				"single-var-declarator",
+				"no-non-null-assertion"
+			]
+		}
+	},
+	"tasks": {
+		"build": "deno bundle studio/src/index.ts -o studio/www/index.js --platform browser --minify",
+		"watch": "deno bundle studio/src/index.ts -o studio/www/index.js --platform browser --watch",
+		"serve": "static-web-server --port 3000 --root studio/www",
+		"format": "clang-format -i repalette-sys/*.c repalette-sys/*.h && cargo fmt && deno fmt"
+	}
+}

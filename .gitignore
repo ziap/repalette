@@ -4,3 +4,5 @@ test.jpg
 target
 .rustup
 .cargo
+
+studio/www/index.js

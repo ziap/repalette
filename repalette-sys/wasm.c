@@ -7,76 +7,74 @@ static size_t memory_capacity = 0;
 static u8 *memory = 0;
 
 static void resize(size_t new_size) {
-  if (new_size > memory_capacity) {
-    if (memory_capacity == 0)
-      memory = (u8 *)(__builtin_wasm_memory_size(0) * PAGE);
+	if (new_size > memory_capacity) {
+		if (memory_capacity == 0)
+			memory = (u8 *)(__builtin_wasm_memory_size(0) * PAGE);
 
-    size_t pages = (new_size - memory_capacity + PAGE - 1) / PAGE;
-    __builtin_wasm_memory_grow(0, pages);
-    memory_capacity += pages * PAGE;
-  }
+		size_t pages = (new_size - memory_capacity + PAGE - 1) / PAGE;
+		__builtin_wasm_memory_grow(0, pages);
+		memory_capacity += pages * PAGE;
+	}
 }
 
 struct {
-  int size;
-  int capacity;
+	int size;
+	int capacity;
 
-  int *rs;
-  int *gs;
-  int *bs;
+	int *rs;
+	int *gs;
+	int *bs;
 } state;
 
-export int ditherer_count(void) {
-  return DITHER_COUNT;
-}
+export int ditherer_count(void) { return DITHER_COUNT; }
 
 export const char *ditherer_display(Ditherer ditherer) {
-  return dither_display_names[ditherer];
+	return dither_display_names[ditherer];
 }
 
 export void palette_init(int capacity) {
-  int padded_capacity = (capacity + 3) / 4 * 4;
-  state.size = 0;
-  state.capacity = padded_capacity;
+	int padded_capacity = (capacity + 3) / 4 * 4;
+	state.size = 0;
+	state.capacity = padded_capacity;
 
-  resize(padded_capacity * 3 * sizeof(int));
-  state.rs = (int*)memory + 0 * padded_capacity;
-  state.gs = (int*)memory + 1 * padded_capacity;
-  state.bs = (int*)memory + 2 * padded_capacity;
+	resize(padded_capacity * 3 * sizeof(int));
+	state.rs = (int *)memory + 0 * padded_capacity;
+	state.gs = (int *)memory + 1 * padded_capacity;
+	state.bs = (int *)memory + 2 * padded_capacity;
 }
 
 export void palette_add(u8 red, u8 green, u8 blue) {
-  state.rs[state.size] = red;
-  state.gs[state.size] = green;
-  state.bs[state.size] = blue;
+	state.rs[state.size] = red;
+	state.gs[state.size] = green;
+	state.bs[state.size] = blue;
 
-  state.size += 1;
+	state.size += 1;
 }
 
 export u8 *get_pixels(int width, int height) {
-  size_t offset = state.capacity * 3 * sizeof(int);
-  resize(4 * width * height + offset);
-  return memory + offset;
+	size_t offset = state.capacity * 3 * sizeof(int);
+	resize(4 * width * height + offset);
+	return memory + offset;
 }
 
 export void update_canvas(int width, int height, Ditherer ditherer) {
-  if (state.size == 0) return;
-  for (int i = state.size; i < state.capacity; ++i) {
-    state.rs[i] = state.rs[state.size - 1];
-    state.gs[i] = state.gs[state.size - 1];
-    state.bs[i] = state.bs[state.size - 1];
-  }
+	if (state.size == 0) return;
+	for (int i = state.size; i < state.capacity; ++i) {
+		state.rs[i] = state.rs[state.size - 1];
+		state.gs[i] = state.gs[state.size - 1];
+		state.bs[i] = state.bs[state.size - 1];
+	}
 
-  u8 *pixels = memory + state.capacity * 3 * sizeof(int);
-  Palette palette = {
-    .buffer = NULL,
-    .size = state.capacity,
-    .rs = state.rs,
-    .gs = state.gs,
-    .bs = state.bs,
-  };
+	u8 *pixels = memory + state.capacity * 3 * sizeof(int);
+	Palette palette = {
+		.buffer = NULL,
+		.size = state.capacity,
+		.rs = state.rs,
+		.gs = state.gs,
+		.bs = state.bs,
+	};
 
-  Image img = { pixels, width, height };
+	Image img = {pixels, width, height};
 
-  recolor(img, palette, ditherer);
+	recolor(img, palette, ditherer);
 }
