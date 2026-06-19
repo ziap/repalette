@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"lib": ["deno.window", "deno.ns"]
+		"lib": ["deno.window", "deno.ns", "dom"]
 	},
 	"fmt": {
 		"useTabs": true,

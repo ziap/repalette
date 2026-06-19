@@ -12,11 +12,14 @@
 		<link rel="stylesheet" href="styles.css">
 		<title>Repalette</title>
 		<script>
-			const lightQuery = globalThis.matchMedia('(prefers-color-scheme: light)')
-			const systemTheme = lightQuery.matches ? 'light' : 'dark'
-
-			const theme = localStorage.getItem('repalette:theme') ?? systemTheme
-			document.documentElement.setAttribute('data-theme', theme)
+			{
+				const lightQuery = globalThis.matchMedia(
+					'(prefers-color-scheme: light)',
+				)
+				const systemTheme = lightQuery.matches ? 'light' : 'dark'
+				const theme = localStorage.getItem('repalette:theme') ?? systemTheme
+				document.documentElement.setAttribute('data-theme', theme)
+			}
 		</script>
 		<script type="module" src="index.js"></script>
 	</head>
