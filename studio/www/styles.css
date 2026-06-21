@@ -69,15 +69,13 @@ body {
 .nav {
 	background: var(--panel);
 	border-bottom: var(--border);
-	padding: var(--pad);
+	padding: var(--pad) 1rem;
 	display: flex;
-	scrollbar-gutter: var(--transition);
 	align-items: center;
-	scrollbar-gutter: stable both-edges;
-	overflow-y: auto;
 
 	.title {
 		font-size: var(--text-lg);
+		font-weight: 600;
 		color: var(--text);
 	}
 
@@ -126,7 +124,7 @@ body {
 .workspace {
 	background: var(--bg);
 	background-image: radial-gradient(circle, var(--dot) 2px, transparent 0px);
-	background-size: 24px 24px;
+	background-size: 20px 20px;
 	background-position: center;
 	flex: 7;
 }
@@ -160,44 +158,61 @@ body {
 	border-left: var(--border);
 	display: flex;
 	flex-direction: column;
+}
 
-	.dock-scroll {
-		padding: 1rem var(--pad);
-		overflow-y: auto;
-		scrollbar-gutter: stable both-edges;
-		flex: 1;
+.dock-scroll {
+	overflow-y: auto;
+	flex: 1;
+}
+
+.dock-section {
+	padding: 1rem;
+
+	.heading {
+		color: var(--text);
+		font-size: var(--text-md);
+		font-weight: 600;
+		margin-bottom: 0.75rem;
 	}
 
-	.dock-footer {
-		border-top: var(--border);
-		padding: var(--pad);
-		font-size: var(--text-sm);
-		font-family: var(--font-mono);
-		color: var(--text-dim);
+	&:not(:last-child) {
+		border-bottom: var(--border);
+	}
+}
 
-		display: flex;
+.dock-footer {
+	border-top: var(--border);
+	padding: var(--pad);
+	font-size: var(--text-sm);
+	font-family: var(--font-mono);
+	color: var(--text-dim);
 
-		& > :not(:last-child) {
-			border-right: var(--border);
-			padding-right: var(--pad);
-			margin-right: var(--pad);
-		}
+	display: flex;
 
-		.status {
-			display: inline-flex;
-			align-items: center;
-			gap: var(--pad);
+	& > :not(:last-child) {
+		border-right: var(--border);
+		padding-right: var(--pad);
+		margin-right: var(--pad);
+	}
 
-			.indicator {
-				--size: 7px;
+	.status {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--pad);
 
-				background: var(--ready);
-				border-radius: var(--size);
-				width: var(--size);
-				height: var(--size);
-			}
+		.indicator {
+			--size: 0.5rem;
+
+			background: var(--ready);
+			border-radius: var(--size);
+			width: var(--size);
+			height: var(--size);
 		}
 	}
+}
+
+#section-switcher {
+	display: none;
 }
 
 @media (max-width: 720px) {
@@ -210,5 +225,17 @@ body {
 		max-width: unset;
 		border-left: none;
 		border-top: var(--border);
+	}
+
+	#section-switcher {
+		display: flex;
+	}
+
+	.dock-section {
+		display: none;
+
+		&[data-sec] {
+			display: block;
+		}
 	}
 }
