@@ -227,8 +227,34 @@ body {
 		border-top: var(--border);
 	}
 
+	.dock-footer {
+		display: none;
+	}
+
 	#section-switcher {
 		display: flex;
+
+		.switcher-input {
+			flex: 1;
+
+			input:checked + div {
+				color: var(--accent);
+			}
+
+			& > div {
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				color: var(--text-dim);
+				gap: 0.25rem;
+				padding: 1rem;
+
+				& > svg {
+					font-size: var(--text-lg);
+				}
+			}
+		}
 	}
 
 	.dock-section {
