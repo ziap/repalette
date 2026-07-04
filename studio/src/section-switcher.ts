@@ -31,10 +31,20 @@ for (let i = 0; i < sections.length; ++i) {
 	input.type = 'radio'
 	input.value = sectionName
 	input.hidden = true
-	input.checked = i === 0
+
+	if (i === 0) {
+		input.checked = true
+		section.classList.add('active')
+	}
 
 	input.addEventListener('change', () => {
 		container.style.transform = `translateX(${i * -100}%)`
+
+		for (const sec of sections) {
+			sec.classList.remove('active')
+		}
+
+		section.classList.add('active')
 	})
 
 	const label = document.createElement('div')
