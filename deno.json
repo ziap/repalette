@@ -9,7 +9,7 @@
 		"semiColons": false,
 		"singleQuote": true,
 		"proseWrap": "preserve",
-		"include": ["deno.json"]
+		"include": ["scripts/", "deno.json"]
 	},
 	"lint": {
 		"rules": {
@@ -27,6 +27,7 @@
 		}
 	},
 	"tasks": {
-		"format": "clang-format -i repalette-sys/*.c repalette-sys/*.h && cargo fmt && deno fmt"
+		"format": "clang-format -i repalette-sys/*.c repalette-sys/*.h && cargo fmt && deno fmt",
+		"palettes": "deno run --allow-net=raw.githubusercontent.com --allow-write=src scripts/fetch-palettes.ts"
 	}
 }
