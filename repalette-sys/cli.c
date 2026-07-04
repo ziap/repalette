@@ -74,23 +74,24 @@ int repalette_process(
 }
 
 void repalette_help(void) {
-	printf("USAGE:\n");
-	printf("  repalette -h | --help\n");
-	printf("  repalette <input file> <output file> [options]\n");
-	printf("  repalette palette list\n");
-	printf("  repalette palette show <name>\n");
+	printf("Recolor an image to a palette\n");
 	printf("\n");
-	printf("OPTIONS:\n");
+	printf("Usage:\n");
+	printf("  repalette apply <input file> <output file> [options]\n");
+	printf("\n");
+	printf("Options:\n");
 	printf(
-		"  -p, --palette <name>          Built-in preset (see 'palette list')\n"
+		"  -p, --palette <name>          Built-in preset (see 'repalette palette "
+		"list')\n"
 	);
 	printf(
 		"  -c, --colors COLOR[,COLOR...] Manual palette, e.g. 000000,ffffff\n"
 	);
 	printf("  -d, --dither <ditherer>\n");
+	printf("  -h, --help                    Print help\n");
 	printf("\n");
 
-	printf("DITHERER: %s", dither_names[0]);
+	printf("Ditherer: %s", dither_names[0]);
 	for (int i = 1; i < DITHER_COUNT; ++i) { printf(" | %s", dither_names[i]); }
 	printf("\n");
 
