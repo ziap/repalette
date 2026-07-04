@@ -1,6 +1,15 @@
 use std::process::Command;
 
 fn main() {
+	for path in [
+		"repalette-sys/cli.c",
+		"repalette-sys/repalette.c",
+		"repalette-sys/repalette.h",
+		"repalette-sys/wasm.c",
+	] {
+		println!("cargo:rerun-if-changed={path}");
+	}
+
 	let args = ["-O3", "-std=c99", "-Wall", "-Wextra", "-pedantic", "-s"];
 
 	let native_args = ["-march=native", "-mtune=native"];
