@@ -1,41 +1,21 @@
-use std::ffi::{CStr, c_char, c_int};
 use std::io::Write;
 use std::path::Path;
 
+use clap::builder::{PossibleValue, PossibleValuesParser};
 use clap::{Parser, Subcommand};
 use image::error::UnsupportedErrorKind;
 use image::{DynamicImage, ImageError, ImageReader};
 
 mod palettes;
+mod repalette;
 
-unsafe extern "C" {
-	fn repalette_process(
-		pixels: *mut u8,
-		width: c_int,
-		height: c_int,
-		colors: *const u32,
-		count: usize,
-		ditherer: c_int,
-	) -> c_int;
+fn dither_values() -> PossibleValuesParser {
+	let ditherers = repalette::get_ditherers();
 
-	fn ditherer_count() -> c_int;
-	fn ditherer_name(index: c_int) -> *const c_char;
-	fn ditherer_display(index: c_int) -> *const c_char;
-}
-
-fn dither_values() -> clap::builder::PossibleValuesParser {
-	let values = (0..unsafe { ditherer_count() }).map(|i| {
-		let name = get_str(unsafe { ditherer_name(i) });
-		let display = get_str(unsafe { ditherer_display(i) });
-		clap::builder::PossibleValue::new(name).help(display)
-	});
-	clap::builder::PossibleValuesParser::new(values)
-}
-
-fn dither_index(name: &str) -> c_int {
-	(0..unsafe { ditherer_count() })
-		.find(|&i| unsafe { CStr::from_ptr(ditherer_name(i)) }.to_str() == Ok(name))
-		.expect("clap validated the ditherer name")
+	ditherers
+		.iter()
+		.map(|ditherer| PossibleValue::new(ditherer.name).help(ditherer.display_name))
+		.into()
 }
 
 #[derive(Parser, Debug)]
@@ -53,10 +33,6 @@ enum Command {
 		#[command(subcommand)]
 		action: PaletteArgs,
 	},
-}
-
-fn get_str(ptr: *const c_char) -> &'static str {
-	unsafe { CStr::from_ptr(ptr).to_str().unwrap() }
 }
 
 #[derive(clap::Args, Debug)]
@@ -78,7 +54,7 @@ struct ApplyArgs {
 	#[arg(
 		short,
 		long,
-		default_value = get_str(unsafe { ditherer_name(1) }),
+		default_value = repalette::default_ditherer(),
 		value_parser = dither_values(),
 	)]
 	dither: String,
@@ -121,7 +97,7 @@ fn run_palette(action: PaletteArgs) {
 
 enum Palette {
 	Preset(&'static [u32]),
-	Custom(Vec<u32>),
+	Custom(Box<[u32]>),
 }
 
 impl Palette {
@@ -210,20 +186,9 @@ fn run_apply(args: ApplyArgs) {
 	let height = image.height();
 	let mut pixels = image.into_raw();
 
-	let status = unsafe {
-		repalette_process(
-			pixels.as_mut_ptr(),
-			width as i32,
-			height as i32,
-			colors.as_ptr(),
-			colors.len(),
-			dither_index(&args.dither),
-		)
-	};
-
-	if status != 0 {
-		std::process::exit(status);
-	}
+	repalette::process(&mut pixels, width, height, colors, &args.dither).unwrap_or_else(|err| {
+		std::process::exit(err.status);
+	});
 
 	let image = image::RgbaImage::from_raw(width, height, pixels).unwrap();
 

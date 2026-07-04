@@ -55,7 +55,7 @@ const fn parse_hex(b: &[u8], pos: usize) -> Result<HexResult, ColorError> {
 	}
 }
 
-pub fn parse_palette(s: &str) -> Result<Vec<u32>, ColorError> {
+pub fn parse_palette(s: &str) -> Result<Box<[u32]>, ColorError> {
 	let b = s.as_bytes();
 	let mut out = Vec::new();
 	let mut pos = 0;
@@ -63,7 +63,7 @@ pub fn parse_palette(s: &str) -> Result<Vec<u32>, ColorError> {
 		let HexResult { color, next } = parse_hex(b, pos)?;
 		out.push(color);
 		if next >= b.len() {
-			return Ok(out);
+			return Ok(out.into());
 		}
 		pos = next + 1; // skip the comma
 	}
