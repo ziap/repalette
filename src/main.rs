@@ -1,4 +1,4 @@
-use std::ffi::{CString, c_char, c_int};
+use std::ffi::{CStr, c_char, c_int};
 use std::io::Write;
 use std::path::Path;
 
@@ -15,17 +15,30 @@ unsafe extern "C" {
 		height: c_int,
 		colors: *const u32,
 		count: usize,
-		dither: *const c_char,
+		ditherer: c_int,
 	) -> c_int;
 
-	fn repalette_help();
+	fn ditherer_count() -> c_int;
+	fn ditherer_name(index: c_int) -> *const c_char;
+	fn ditherer_display(index: c_int) -> *const c_char;
+}
+
+fn dither_values() -> clap::builder::PossibleValuesParser {
+	let values = (0..unsafe { ditherer_count() }).map(|i| {
+		let name = get_str(unsafe { ditherer_name(i) });
+		let display = get_str(unsafe { ditherer_display(i) });
+		clap::builder::PossibleValue::new(name).help(display)
+	});
+	clap::builder::PossibleValuesParser::new(values)
+}
+
+fn dither_index(name: &str) -> c_int {
+	(0..unsafe { ditherer_count() })
+		.find(|&i| unsafe { CStr::from_ptr(ditherer_name(i)) }.to_str() == Ok(name))
+		.expect("clap validated the ditherer name")
 }
 
 #[derive(Parser, Debug)]
-#[command(
-  styles = clap::builder::Styles::plain(),
-  disable_help_subcommand = true,
-)]
 struct Args {
 	#[command(subcommand)]
 	command: Command,
@@ -34,7 +47,6 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum Command {
 	/// Recolor an image to a palette
-	#[command(disable_help_flag = true)]
 	Apply(ApplyArgs),
 	/// Inspect the built-in palette presets
 	Palette {
@@ -43,12 +55,18 @@ enum Command {
 	},
 }
 
+fn get_str(ptr: *const c_char) -> &'static str {
+	unsafe { CStr::from_ptr(ptr).to_str().unwrap() }
+}
+
 #[derive(clap::Args, Debug)]
 struct ApplyArgs {
+	/// Path to the source image
 	input: Option<Box<Path>>,
+	/// Path to write the recolored image
 	output: Option<Box<Path>>,
 
-	/// Built-in preset (see `repalette palette list`)
+	/// Built-in palette (see `repalette palette list`)
 	#[arg(short, long)]
 	palette: Option<Box<str>>,
 
@@ -56,19 +74,25 @@ struct ApplyArgs {
 	#[arg(short = 'c', long, conflicts_with = "palette")]
 	colors: Option<Box<str>>,
 
-	#[arg(short, long, default_value = "")]
-	dither: CString,
-
-	#[arg(short = 'h', long = "help")]
-	help: bool,
+	/// Dithering algorithm
+	#[arg(
+		short,
+		long,
+		default_value = get_str(unsafe { ditherer_name(1) }),
+		value_parser = dither_values(),
+	)]
+	dither: String,
 }
 
 #[derive(Subcommand, Debug)]
 enum PaletteArgs {
-	/// List every palette name
+	/// List all available color palettes
 	List,
 	/// Print a palette's colors
-	Show { name: Box<str> },
+	Show {
+		/// Palette name
+		name: Box<str>,
+	},
 }
 
 fn unknown_preset(name: &str) -> ! {
@@ -136,11 +160,6 @@ fn main() {
 }
 
 fn run_apply(args: ApplyArgs) {
-	if args.help {
-		unsafe { repalette_help() };
-		return;
-	}
-
 	let palette = Palette::resolve(args.palette.as_deref(), args.colors);
 	let colors = palette.as_slice();
 
@@ -198,7 +217,7 @@ fn run_apply(args: ApplyArgs) {
 			height as i32,
 			colors.as_ptr(),
 			colors.len(),
-			args.dither.as_ptr(),
+			dither_index(&args.dither),
 		)
 	};
 
