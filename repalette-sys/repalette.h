@@ -17,7 +17,6 @@ typedef struct {
 } Color;
 
 typedef struct {
-	int *buffer;
 	size_t size;
 
 	const int *rs;

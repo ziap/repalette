@@ -1,4 +1,5 @@
-use std::ffi::{CString, c_char};
+use std::ffi::{CString, c_char, c_int};
+use std::io::Write;
 use std::path::Path;
 
 use clap::{Parser, Subcommand};
@@ -12,15 +13,20 @@ unsafe extern "C" {
 		pixels: *mut u8,
 		width: i32,
 		height: i32,
-		palette: *const c_char,
+		colors: *const u32,
+		count: usize,
 		dither: *const c_char,
-	) -> i32;
+	) -> c_int;
 
 	fn repalette_help();
 }
 
 #[derive(Parser, Debug)]
-#[command(disable_help_flag = true, args_conflicts_with_subcommands = true)]
+#[command(
+	disable_help_flag = true,
+	disable_help_subcommand = true,
+	args_conflicts_with_subcommands = true
+)]
 struct Args {
 	#[command(subcommand)]
 	command: Option<Command>,
@@ -30,11 +36,11 @@ struct Args {
 
 	/// Built-in palette preset (see `repalette palette list`)
 	#[arg(short, long)]
-	palette: Option<String>,
+	palette: Option<Box<str>>,
 
 	/// Manual palette: comma-separated hex colors, e.g. 000000,ffffff
 	#[arg(short = 'c', long, conflicts_with = "palette")]
-	colors: Option<CString>,
+	colors: Option<Box<str>>,
 
 	#[arg(short, long, default_value = "")]
 	dither: CString,
@@ -57,7 +63,7 @@ enum PaletteAction {
 	/// List every preset name
 	List,
 	/// Print a preset's colors
-	Show { name: String },
+	Show { name: Box<str> },
 }
 
 fn unknown_preset(name: &str) -> ! {
@@ -66,27 +72,54 @@ fn unknown_preset(name: &str) -> ! {
 }
 
 fn run_palette(action: PaletteAction) {
+	let mut out = std::io::stdout().lock();
 	match action {
-		PaletteAction::List => {
-			for name in palettes::NAMES {
-				println!("{name}");
-			}
-		}
+		PaletteAction::List => palettes::write_names(&mut out).unwrap(),
 		PaletteAction::Show { name } => match palettes::get(&name) {
-			Some(colors) => println!("{colors}"),
+			Some(colors) => {
+				for (i, color) in colors.iter().enumerate() {
+					if i > 0 {
+						out.write_all(b",").unwrap();
+					}
+					write!(out, "{color:06x}").unwrap();
+				}
+				out.write_all(b"\n").unwrap();
+			}
 			None => unknown_preset(&name),
 		},
 	}
 }
 
-fn resolve_palette(preset: Option<&str>, colors: Option<CString>) -> CString {
-	match (preset, colors) {
-		(Some(name), _) => match palettes::get(name) {
-			Some(hex) => CString::new(hex).unwrap(),
-			None => unknown_preset(name),
-		},
-		(None, Some(colors)) => colors,
-		(None, None) => CString::default(),
+enum Palette {
+	Preset(&'static [u32]),
+	Custom(Vec<u32>),
+}
+
+impl Palette {
+	const DEFAULT: Self = Self::Preset(&[0x000000, 0xffffff]);
+
+	fn as_slice(&self) -> &[u32] {
+		match self {
+			Palette::Preset(s) => s,
+			Palette::Custom(v) => v,
+		}
+	}
+
+	fn resolve(preset: Option<&str>, colors: Option<Box<str>>) -> Self {
+		match (preset, colors) {
+			(Some(name), _) => match palettes::get(name) {
+				Some(c) => Self::Preset(c),
+				None => unknown_preset(name),
+			},
+			(None, Some(s)) => match palettes::parse_palette(&s) {
+				Ok(v) => Palette::Custom(v),
+				Err(e) => {
+					eprintln!("{}", e.message());
+					std::process::exit(1);
+				}
+			},
+			(None, None) => Self::DEFAULT,
+		}
 	}
 }
 
@@ -103,7 +136,8 @@ fn main() {
 		return;
 	}
 
-	let palette = resolve_palette(args.palette.as_deref(), args.colors);
+	let palette = Palette::resolve(args.palette.as_deref(), args.colors);
+	let colors = palette.as_slice();
 
 	let (input, output) = match (args.input.as_deref(), args.output.as_deref()) {
 		(None, _) => {
@@ -155,7 +189,8 @@ fn main() {
 			pixels.as_mut_ptr(),
 			width as i32,
 			height as i32,
-			palette.as_ptr(),
+			colors.as_ptr(),
+			colors.len(),
 			args.dither.as_ptr(),
 		)
 	};

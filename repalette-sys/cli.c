@@ -28,108 +28,48 @@ static int parse_dither(const char* param, Ditherer* dither) {
 	return 1;
 }
 
-static int parse_palette(const char* param, Palette* palette) {
-	size_t size = 1;
-	for (const char* c = param; *c != '\0'; ++c) {
-		if (*c == ',') ++size;
-	}
-
-	palette->size = (size + 3) / 4 * 4;
-	palette->buffer = malloc(3 * palette->size * sizeof(int));
-	if (!palette->buffer) return 1;
-
-	int* rs = palette->buffer + 0 * palette->size;
-	int* gs = palette->buffer + 1 * palette->size;
-	int* bs = palette->buffer + 2 * palette->size;
-
-	size = 0;
-	Hex hex = 0;
-	int digits = 0;
-	for (const char* c = param; *c != '\0'; ++c) {
-		if (*c == ',') {
-			if (digits != 6) {
-				fprintf(stderr, "ERROR: Each color must be 6 hex digits\n");
-				return 1;
-			}
-
-			Color color = from_hex(hex);
-			rs[size] = color.r;
-			gs[size] = color.g;
-			bs[size] = color.b;
-
-			size += 1;
-			hex = 0;
-			digits = 0;
-			continue;
-		}
-		hex *= 16;
-		if (*c >= '0' && *c <= '9') hex += *c - '0';
-		else if (*c >= 'a' && *c <= 'f')
-			hex += *c - 'a' + 10;
-		else if (*c >= 'A' && *c <= 'F')
-			hex += *c - 'A' + 10;
-		else {
-			fprintf(stderr, "ERROR: Unsupported character '%c' in color\n", *c);
-			return 1;
-		}
-		digits += 1;
-	}
-
-	if (digits != 6) {
-		fprintf(stderr, "ERROR: Each color must be 6 hex digits\n");
-		return 1;
-	}
-
-	Color color = from_hex(hex);
-	for (size_t i = size; i < palette->size; ++i) {
-		rs[i] = color.r;
-		gs[i] = color.g;
-		bs[i] = color.b;
-	}
-
-	palette->rs = rs;
-	palette->gs = gs;
-	palette->bs = bs;
-	return 0;
-}
-
-static int default_palette(Palette* palette) {
-	palette->size = 4;
-	palette->buffer = malloc(3 * palette->size * sizeof(int));
-	if (!palette->buffer) return 1;
-
-	int* rs = palette->buffer + 0 * palette->size;
-	int* gs = palette->buffer + 1 * palette->size;
-	int* bs = palette->buffer + 2 * palette->size;
-
-	rs[0] = gs[0] = bs[0] = 0x00;
-	for (size_t i = 1; i < palette->size; ++i) { rs[i] = gs[i] = bs[i] = 0xff; }
-
-	palette->rs = rs;
-	palette->gs = gs;
-	palette->bs = bs;
-	return 0;
-}
-
 int repalette_process(
-	u8* pixels, int width, int height, const char* palette, const char* dither
+	u8* pixels, int width, int height, const uint32_t* colors, size_t count,
+	const char* dither
 ) {
 	Ditherer ditherer = FLOYD_STEINBERG;
 	if (dither && *dither) {
 		if (parse_dither(dither, &ditherer)) return 1;
 	}
 
-	Palette pal = {0};
-	if (palette && *palette) {
-		if (parse_palette(palette, &pal)) return 1;
-	} else if (default_palette(&pal)) {
-		return 1;
+	size_t size = (count + 3) / 4 * 4;
+	int* buffer = malloc(3 * size * sizeof(int));
+	if (!buffer) return 1;
+
+	int* rs = buffer + 0 * size;
+	int* gs = buffer + 1 * size;
+	int* bs = buffer + 2 * size;
+
+	for (size_t i = 0; i < count; ++i) {
+		Color color = from_hex(colors[i]);
+		rs[i] = color.r;
+		gs[i] = color.g;
+		bs[i] = color.b;
 	}
+
+	Color last = from_hex(count > 0 ? colors[count - 1] : 0);
+	for (size_t i = count; i < size; ++i) {
+		rs[i] = last.r;
+		gs[i] = last.g;
+		bs[i] = last.b;
+	}
+
+	Palette pal = {
+		.size = size,
+		.rs = rs,
+		.gs = gs,
+		.bs = bs,
+	};
 
 	Image img = {pixels, width, height};
 	recolor(img, pal, ditherer);
 
-	free(pal.buffer);
+	free(buffer);
 	return 0;
 }
 

@@ -67,7 +67,6 @@ export void update_canvas(int width, int height, Ditherer ditherer) {
 
 	u8 *pixels = memory + state.capacity * 3 * sizeof(int);
 	Palette palette = {
-		.buffer = NULL,
 		.size = state.capacity,
 		.rs = state.rs,
 		.gs = state.gs,
