@@ -10,12 +10,12 @@ a CLI utility and a web application.
 - Recolor images using nearest neighbor search.
 - Optional dithering for smoother results.
 - SIMD accelerated palette search and dithering.
- 
+- Built-in palette presets from [Gogh](https://gogh-co.github.io/Gogh/),
+  bundled into the binary at compile time.
 
 **Web-version:**
 
 - WASM-powered web application (mostly for mobile usage)
-- Fetch color schemes from [Gosh](https://gogh-co.github.io/Gogh/)
 - Support for both text-based and color-picker-based palette editing
 - Responsive layout and adaptive light/dark theme
 
@@ -58,9 +58,12 @@ cargo build --release --features wasm
 USAGE:
   repalette -h | --help
   repalette <input file> <output file> [options]
+  repalette palette list
+  repalette palette show <name>
 
 OPTIONS:
-  -p, --palette COLOR[,COLOR...]
+  -p, --palette <name>          Built-in preset (see 'palette list')
+  -c, --colors COLOR[,COLOR...] Manual palette, e.g. 000000,ffffff
   -d, --dither <ditherer>
 
 DITHERER: none | fs | atkinson | jjn | burkes | sierra32 | sierra4
@@ -73,14 +76,19 @@ DITHERER: none | fs | atkinson | jjn | burkes | sierra32 | sierra4
   sierra4  - Sierra Lite
 ```
 
-- The default color palette is `000000,ffffff` (black and white)
-- The default dithering algorithm is `fs` (Floyd-Steinberg)
-
 Example:
 
 ```
-repalette input.jpg output-no-dither.png -p 000000,ff0000,ffffff --dither none
-repalette input.jpg output-burkes.png -p 000000,ff0000,ffffff --dither burkes
+# a built-in preset
+repalette input.jpg output.png -p nord
+
+# a manual palette (6-digit hex, no '#')
+repalette input.jpg output-no-dither.png -c 000000,ff0000,ffffff --dither none
+repalette input.jpg output-burkes.png -c 000000,ff0000,ffffff --dither burkes
+
+# browse the presets
+repalette palette list
+repalette palette show gruvbox-dark
 ```
 
 | input.jpg          | output-no-dither.png          | output-burkes.png          |
