@@ -34,20 +34,17 @@ const fn parse_hex(b: &[u8], pos: usize) -> Result<HexResult, ColorError> {
 	let mut digits = 0u32;
 	while next < b.len() && b[next] != b',' {
 		let c = b[next];
-		let d = if c >= b'0' && c <= b'9' {
-			c - b'0'
-		} else if c >= b'a' && c <= b'f' {
-			c - b'a' + 10
-		} else if c >= b'A' && c <= b'F' {
-			c - b'A' + 10
-		} else {
-			return Err(ColorError::BadChar(c));
-		};
+		let d = match c {
+			b'0'..=b'9' => c - b'0',
+			b'a'..=b'f' => c - b'a' + 10,
+			b'A'..=b'F' => c - b'A' + 10,
+			_ => return Err(ColorError::BadChar(c)),
+		} as u32;
 		digits += 1;
 		if digits > 6 {
 			return Err(ColorError::WrongDigits);
 		}
-		color = color * 16 + d as u32;
+		color = (color << 4) | d;
 		next += 1;
 	}
 
