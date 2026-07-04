@@ -1,40 +1,89 @@
-const RAW: &str = include_str!("palettes.txt");
+use std::io::{self, Write};
+
+const RAW: &[u8] = include_bytes!("palettes.txt");
 
 #[derive(Clone, Copy)]
-struct Entry {
-	key: &'static str,
-	value: &'static str,
+pub enum ColorError {
+	BadChar(u8),
+	WrongDigits,
 }
 
-const EMPTY: Entry = Entry { key: "", value: "" };
-
-const fn substr(start: usize, end: usize) -> &'static str {
-	RAW.split_at(end).0.split_at(start).1
-}
-
-const fn count_lines(s: &str) -> usize {
-	let b = s.as_bytes();
-	let mut i = 0;
-	let mut n = 0;
-	while i < b.len() {
-		if b[i] == b'\n' {
-			n += 1;
+impl ColorError {
+	pub fn message(self) -> String {
+		match self {
+			ColorError::BadChar(c) => {
+				format!("ERROR: Unsupported character '{}' in color", c as char)
+			}
+			ColorError::WrongDigits => "ERROR: Each color must be 6 hex digits".to_string(),
 		}
-		i += 1;
 	}
-	n
 }
 
-const N: usize = count_lines(RAW);
+const fn subbytes(bytes: &'static [u8], start: usize, end: usize) -> &'static [u8] {
+	bytes.split_at(end).0.split_at(start).1
+}
 
-struct Parsed {
+struct HexResult {
+	color: u32,
+	next: usize,
+}
+
+const fn parse_hex(b: &[u8], pos: usize) -> Result<HexResult, ColorError> {
+	let mut next = pos;
+	let mut color = 0u32;
+	let mut digits = 0u32;
+	while next < b.len() && b[next] != b',' {
+		let c = b[next];
+		let d = if c >= b'0' && c <= b'9' {
+			c - b'0'
+		} else if c >= b'a' && c <= b'f' {
+			c - b'a' + 10
+		} else if c >= b'A' && c <= b'F' {
+			c - b'A' + 10
+		} else {
+			return Err(ColorError::BadChar(c));
+		};
+		digits += 1;
+		if digits > 6 {
+			return Err(ColorError::WrongDigits);
+		}
+		color = color * 16 + d as u32;
+		next += 1;
+	}
+
+	if digits != 6 {
+		Err(ColorError::WrongDigits)
+	} else {
+		Ok(HexResult { color, next })
+	}
+}
+
+pub fn parse_palette(s: &str) -> Result<Vec<u32>, ColorError> {
+	let b = s.as_bytes();
+	let mut out = Vec::new();
+	let mut pos = 0;
+	loop {
+		let HexResult { color, next } = parse_hex(b, pos)?;
+		out.push(color);
+		if next >= b.len() {
+			return Ok(out);
+		}
+		pos = next + 1; // skip the comma
+	}
+}
+
+struct Sizes {
+	n: usize,
 	min_len: usize,
 	max_len: usize,
-	entries: [Entry; N],
+	key_bytes: usize,
+	value_count: usize,
 }
 
-const fn parse() -> Parsed {
-	let b = RAW.as_bytes();
+// Pass 1: validate structure + the 6-digit-per-color condition and tally the
+// sizes needed to size the const pools.
+const SIZES: Sizes = {
+	let b = RAW;
 	let len = b.len();
 	if len == 0 {
 		panic!("palettes.txt is empty")
@@ -43,11 +92,12 @@ const fn parse() -> Parsed {
 		panic!("palettes.txt must end with a newline")
 	}
 
-	let mut entries = [EMPTY; N];
+	let mut n = 0;
 	let mut min_len = usize::MAX;
 	let mut max_len = 0;
+	let mut key_bytes = 0;
+	let mut value_count = 0;
 	let mut i = 0;
-	let mut e = 0;
 	while i < len {
 		// name: non-empty, lowercase alphanumeric or '-', up to the ':'
 		let name_start = i;
@@ -61,8 +111,7 @@ const fn parse() -> Parsed {
 		if i >= len || b[i] != b':' {
 			panic!("palettes.txt: expected ':' after the preset name")
 		}
-		let name_end = i;
-		let name_len = name_end - name_start;
+		let name_len = i - name_start;
 		if name_len == 0 {
 			panic!("palettes.txt: empty preset name")
 		}
@@ -72,6 +121,7 @@ const fn parse() -> Parsed {
 		if name_len > max_len {
 			max_len = name_len;
 		}
+		key_bytes += name_len;
 		i += 1; // ':'
 
 		// separator: zero or more spaces
@@ -79,116 +129,210 @@ const fn parse() -> Parsed {
 			i += 1;
 		}
 
-		// colors: comma-separated groups of exactly 6 hex digits (any case)
-		let val_start = i;
+		// colors: count digits per color, require 6; count the colors
 		let mut digits = 0;
+		let mut colors = 0;
 		while i < len && b[i] != b'\n' {
-			let c = b[i];
-			if c == b',' {
+			if b[i] == b',' {
 				if digits != 6 {
 					panic!("palettes.txt: each color must be 6 hex digits")
 				}
+				colors += 1;
 				digits = 0;
-			} else if (c >= b'0' && c <= b'9') || (c >= b'a' && c <= b'f') || (c >= b'A' && c <= b'F') {
+			} else {
 				digits += 1;
 				if digits > 6 {
 					panic!("palettes.txt: each color must be 6 hex digits")
 				}
-			} else {
-				panic!("palettes.txt: colors must be hex digits")
 			}
 			i += 1;
 		}
 		if digits != 6 {
 			panic!("palettes.txt: each color must be 6 hex digits")
 		}
-		let val_end = i;
+		colors += 1;
+		value_count += colors;
 		i += 1; // '\n'
+		n += 1;
+	}
 
-		entries[e] = Entry {
-			key: substr(name_start, name_end),
-			value: substr(val_start, val_end),
-		};
+	Sizes {
+		n,
+		min_len,
+		max_len,
+		key_bytes,
+		value_count,
+	}
+};
+
+const N: usize = SIZES.n;
+const MIN_LEN: usize = SIZES.min_len;
+const MAX_LEN: usize = SIZES.max_len;
+const NBINS: usize = MAX_LEN + 1 - MIN_LEN;
+const KEY_POOL_SIZE: usize = SIZES.key_bytes;
+const VALUE_POOL_SIZE: usize = SIZES.value_count;
+
+struct StringMap {
+	key_pool: [u8; KEY_POOL_SIZE],
+	value_pool: [u32; VALUE_POOL_SIZE],
+	key_off: [usize; NBINS + 1],
+	starts: [usize; NBINS + 1],
+	val_off: [usize; N + 1],
+	name_at: [(usize, usize); N], // per entry (file order): (offset in key_pool, len)
+}
+
+// Pass 2: fill the pools. Entries are counting-sorted by key length so each bin
+// is a contiguous run of same-length keys.
+const MAP: StringMap = {
+	let b = RAW;
+	let len = b.len();
+
+	// per-entry spans in file order
+	let mut name_off = [0usize; N];
+	let mut name_len = [0usize; N];
+	let mut col_off = [0usize; N];
+	let mut col_end = [0usize; N];
+	let mut i = 0;
+	let mut e = 0;
+	while i < len {
+		let ns = i;
+		while b[i] != b':' {
+			i += 1;
+		}
+		name_off[e] = ns;
+		name_len[e] = i - ns;
+		i += 1; // ':'
+		while i < len && b[i] == b' ' {
+			i += 1;
+		}
+		col_off[e] = i;
+		while b[i] != b'\n' {
+			i += 1;
+		}
+		col_end[e] = i;
+		i += 1; // '\n'
 		e += 1;
 	}
 
-	Parsed {
-		min_len,
-		max_len,
-		entries,
-	}
-}
-
-const PARSED: Parsed = parse();
-const MIN_LEN: usize = PARSED.min_len;
-const MAX_LEN: usize = PARSED.max_len;
-const NBINS: usize = MAX_LEN + 1 - MIN_LEN;
-
-struct StringMap {
-	entries: [Entry; N],
-	starts: [usize; NBINS + 1],
-}
-
-const fn build() -> StringMap {
-	let src = PARSED.entries;
-
+	// counting sort by key length
 	let mut cnt = [0usize; NBINS];
-	let mut i = 0;
-	while i < N {
-		cnt[src[i].key.len() - MIN_LEN] += 1;
-		i += 1;
+	let mut k = 0;
+	while k < N {
+		cnt[name_len[k] - MIN_LEN] += 1;
+		k += 1;
 	}
-
 	let mut starts = [0usize; NBINS + 1];
+	let mut key_off = [0usize; NBINS + 1];
 	let mut acc = 0;
+	let mut koff = 0;
 	let mut bin = 0;
 	while bin < NBINS {
+		let stride = MIN_LEN + bin;
 		starts[bin] = acc;
+		key_off[bin] = koff;
 		acc += cnt[bin];
+		koff += cnt[bin] * stride;
 		bin += 1;
 	}
 	starts[NBINS] = acc;
+	key_off[NBINS] = koff;
 
+	// stable placement: order[sorted position] = original entry index
 	let mut cursor = starts;
-	let mut entries = [EMPTY; N];
+	let mut order = [0usize; N];
 	let mut j = 0;
 	while j < N {
-		let bin = src[j].key.len() - MIN_LEN;
-		let pos = cursor[bin];
-		entries[pos] = src[j];
+		let bin = name_len[j] - MIN_LEN;
+		order[cursor[bin]] = j;
 		cursor[bin] += 1;
 		j += 1;
 	}
 
-	StringMap { entries, starts }
-}
+	// fill pools in sorted order
+	let mut key_pool = [0u8; KEY_POOL_SIZE];
+	let mut value_pool = [0u32; VALUE_POOL_SIZE];
+	let mut val_off = [0usize; N + 1];
+	let mut name_at = [(0usize, 0usize); N];
+	let mut kp = 0;
+	let mut vp = 0;
+	let mut s = 0;
+	while s < N {
+		let ent = order[s];
 
-static MAP: StringMap = build();
+		let key = subbytes(RAW, name_off[ent], name_off[ent] + name_len[ent]);
+		name_at[ent] = (kp, key.len()); // this key's span in key_pool, scattered by order
+		let mut t = 0;
+		while t < key.len() {
+			key_pool[kp] = key[t];
+			kp += 1;
+			t += 1;
+		}
 
-pub fn get(name: &str) -> Option<&'static str> {
-	let len = name.len();
+		val_off[s] = vp;
+		let colors = subbytes(RAW, col_off[ent], col_end[ent]);
+		let mut p = 0;
+		while p < colors.len() {
+			match parse_hex(colors, p) {
+				Ok(HexResult { color, next }) => {
+					value_pool[vp] = color;
+					vp += 1;
+					p = if next < colors.len() { next + 1 } else { next };
+				}
+				Err(ColorError::BadChar(_)) => {
+					panic!("palettes.txt: colors must be hex digits")
+				}
+				Err(ColorError::WrongDigits) => {
+					panic!("palettes.txt: each color must be 6 hex digits")
+				}
+			}
+		}
+		s += 1;
+	}
+	val_off[N] = vp;
+
+	StringMap {
+		key_pool,
+		value_pool,
+		key_off,
+		starts,
+		val_off,
+		name_at,
+	}
+};
+
+pub fn get(name: &str) -> Option<&'static [u32]> {
+	let key = name.as_bytes();
+	let len = key.len();
 	if len < MIN_LEN || len > MAX_LEN {
 		return None;
 	}
 
 	let bin = len - MIN_LEN;
+	let mut koff = MAP.key_off[bin];
 	for i in MAP.starts[bin]..MAP.starts[bin + 1] {
-		let entry = MAP.entries[i];
-		if entry.key == name {
-			return Some(entry.value);
+		if &MAP.key_pool[koff..koff + len] == key {
+			return Some(&MAP.value_pool[MAP.val_off[i]..MAP.val_off[i + 1]]);
 		}
+		koff += len;
 	}
 	None
 }
 
-const fn preset_names() -> [&'static str; N] {
-	let mut out = [""; N];
-	let mut i = 0;
-	while i < N {
-		out[i] = PARSED.entries[i].key;
-		i += 1;
+static NAMES: [&'static [u8]; N] = {
+	let mut names: [&[u8]; N] = [&[]; N];
+	let mut j = 0;
+	while j < N {
+		let (off, len) = MAP.name_at[j];
+		names[j] = subbytes(&MAP.key_pool, off, off + len);
+		j += 1;
 	}
-	out
-}
+	names
+};
 
-pub const NAMES: [&str; N] = preset_names();
+pub fn write_names(mut w: impl Write) -> io::Result<()> {
+	for &name in &NAMES {
+		w.write_all(name)?;
+		w.write_all(b"\n")?;
+	}
+	Ok(())
+}
