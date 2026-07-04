@@ -1,6 +1,4 @@
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "repalette.h"
 
@@ -14,29 +12,16 @@ static Color from_hex(Hex hex) {
 	return c;
 }
 
-static int parse_dither(const char* param, Ditherer* dither) {
-#define X(e)                                 \
-	if (strcmp(param, dither_names[e]) == 0) { \
-		*dither = e;                             \
-		return 0;                                \
-	}
+int ditherer_count(void) { return DITHER_COUNT; }
 
-	DITHERERS(X)
-#undef X
+const char* ditherer_name(int i) { return dither_names[i]; }
 
-	fprintf(stderr, "ERROR: Unknown dithering strategy \"%s\"\n", param);
-	return 1;
-}
+const char* ditherer_display(int i) { return dither_display_names[i]; }
 
 int repalette_process(
 	u8* pixels, int width, int height, const uint32_t* colors, size_t count,
-	const char* dither
+	int ditherer
 ) {
-	Ditherer ditherer = FLOYD_STEINBERG;
-	if (dither && *dither) {
-		if (parse_dither(dither, &ditherer)) return 1;
-	}
-
 	size_t size = (count + 3) / 4 * 4;
 	int* buffer = malloc(3 * size * sizeof(int));
 	if (!buffer) return 1;
@@ -67,41 +52,8 @@ int repalette_process(
 	};
 
 	Image img = {pixels, width, height};
-	recolor(img, pal, ditherer);
+	recolor(img, pal, (Ditherer)ditherer);
 
 	free(buffer);
 	return 0;
-}
-
-void repalette_help(void) {
-	printf("Recolor an image to a palette\n");
-	printf("\n");
-	printf("Usage:\n");
-	printf("  repalette apply <input file> <output file> [options]\n");
-	printf("\n");
-	printf("Options:\n");
-	printf(
-		"  -p, --palette <name>          Built-in preset (see 'repalette palette "
-		"list')\n"
-	);
-	printf(
-		"  -c, --colors COLOR[,COLOR...] Manual palette, e.g. 000000,ffffff\n"
-	);
-	printf("  -d, --dither <ditherer>\n");
-	printf("  -h, --help                    Print help\n");
-	printf("\n");
-
-	printf("Ditherer: %s", dither_names[0]);
-	for (int i = 1; i < DITHER_COUNT; ++i) { printf(" | %s", dither_names[i]); }
-	printf("\n");
-
-	int maxlen = strlen(dither_names[0]);
-	for (int i = 1; i < DITHER_COUNT; ++i) {
-		int len = strlen(dither_names[i]);
-		if (len > maxlen) maxlen = len;
-	}
-	for (int i = 0; i < DITHER_COUNT; ++i) {
-		printf("  %-*s - %s\n", maxlen, dither_names[i], dither_display_names[i]);
-	}
-	printf("\n");
 }
