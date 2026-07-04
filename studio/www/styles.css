@@ -119,6 +119,7 @@ body {
 .app {
 	flex: 1;
 	display: flex;
+	flex-direction: column;
 	align-items: stretch;
 }
 
@@ -153,10 +154,9 @@ body {
 }
 
 .dock {
-	flex: 5;
-	max-width: 360px;
+	flex: 0;
 	background: var(--panel);
-	border-left: var(--border);
+	border-top: var(--border);
 	display: flex;
 	flex-direction: column;
 }
@@ -166,18 +166,31 @@ body {
 	flex: 1;
 }
 
-.dock-sections > section {
-	padding: 1rem;
+.dock-sections {
+	display: flex;
+	transform: unset;
+	transition: transform var(--transition);
 
-	.heading {
-		color: var(--text);
-		font-size: var(--text-md);
-		font-weight: 600;
-		margin-bottom: 0.75rem;
-	}
+	& > section {
+		padding: 1rem;
+		display: none;
 
-	&:not(:last-child) {
-		border-bottom: var(--border);
+		.heading {
+			color: var(--text);
+			font-size: var(--text-md);
+			font-weight: 600;
+			margin-bottom: 0.75rem;
+		}
+
+		&:not(:last-child) {
+			border-bottom: var(--border);
+		}
+
+		&[data-sec] {
+			display: block;
+			flex: none;
+			width: 100%;
+		}
 	}
 }
 
@@ -188,7 +201,7 @@ body {
 	font-family: var(--font-mono);
 	color: var(--text-dim);
 
-	display: flex;
+	display: none;
 
 	& > :not(:last-child) {
 		border-right: var(--border);
@@ -213,75 +226,62 @@ body {
 }
 
 #section-switcher {
-	display: none;
+	display: flex;
+
+	.switcher-input {
+		flex: 1;
+
+		& > input:checked + div {
+			color: var(--accent);
+		}
+
+		& > div {
+			transition: color var(--transition), background var(--transition);
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			color: var(--text-dim);
+			gap: 0.25rem;
+			padding: 1rem;
+
+			& > svg {
+				font-size: var(--text-lg);
+			}
+
+			&:hover {
+				background: var(--hover);
+			}
+		}
+	}
 }
 
-@media (max-width: 720px) {
+@media (min-width: 720px) {
 	.app {
-		flex-direction: column;
+		flex-direction: row;
 	}
 
 	.dock {
-		flex: 0;
-		max-width: unset;
-		border-left: none;
-		border-top: var(--border);
+		flex: 5;
+		max-width: 360px;
+		border-top: none;
+		border-left: var(--border);
 	}
 
 	.dock-footer {
-		display: none;
+		display: flex;
 	}
 
 	#section-switcher {
-		display: flex;
-
-		.switcher-input {
-			flex: 1;
-
-			& > input:checked + div {
-				color: var(--accent);
-			}
-
-			& > div {
-				transition: color var(--transition), background var(--transition);
-				display: flex;
-				flex-direction: column;
-				justify-content: center;
-				align-items: center;
-				color: var(--text-dim);
-				gap: 0.25rem;
-				padding: 1rem;
-
-				& > svg {
-					font-size: var(--text-lg);
-				}
-
-				&:hover {
-					background: var(--hover);
-				}
-			}
-		}
+		display: none;
 	}
 
 	.dock-sections {
-		display: flex;
-		transform: unset;
-		transition: transform var(--transition-fast);
+		display: block;
+		transform: none !important;
 
 		& > section {
-			display: none;
-
-			&[data-sec] {
-				display: unset;
-				flex: none;
-				width: 100%;
-			}
+			display: block;
 		}
-	}
-}
-
-@media not (max-width: 720px) {
-	.dock-sections {
-		transform: none !important;
 	}
 }

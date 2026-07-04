@@ -10,11 +10,12 @@ const switcher = assertClass(
 	document.querySelector('#section-switcher'),
 )
 
-const sections = Array.from(
-	container.children,
-	(x) => assertClass(HTMLElement, x),
-).filter((x) => x.hasAttribute('data-sec'))
-console.log(sections)
+const sections = new Array<HTMLElement>()
+for (const child of container.children) {
+	if (child.hasAttribute('data-sec')) {
+		sections.push(assertClass(HTMLElement, child))
+	}
+}
 
 for (let i = 0; i < sections.length; ++i) {
 	const section = sections[i]
