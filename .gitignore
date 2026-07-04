@@ -6,3 +6,4 @@ target
 .cargo
 
 web/palettes.txt
+studio/www/index.js

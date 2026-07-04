@@ -9,9 +9,10 @@
 		"semiColons": false,
 		"singleQuote": true,
 		"proseWrap": "preserve",
-		"include": ["scripts/", "deno.json"]
+		"include": ["scripts/", "studio/src/", "studio/www/", "deno.json"]
 	},
 	"lint": {
+		"include": ["studio/src/"],
 		"rules": {
 			"tags": ["recommended"],
 			"include": [
@@ -27,6 +28,9 @@
 		}
 	},
 	"tasks": {
+		"build": "deno bundle studio/src/index.ts -o studio/www/index.js --platform browser --minify",
+		"watch": "deno bundle studio/src/index.ts -o studio/www/index.js --platform browser --watch",
+		"serve": "static-web-server --port 3000 --root studio/www",
 		"format": "clang-format -i crates/core/src/c/*.c crates/core/src/c/*.h && cargo fmt && deno fmt"
 	}
 }
