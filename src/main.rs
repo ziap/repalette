@@ -11,8 +11,8 @@ mod palettes;
 unsafe extern "C" {
 	fn repalette_process(
 		pixels: *mut u8,
-		width: i32,
-		height: i32,
+		width: c_int,
+		height: c_int,
 		colors: *const u32,
 		count: usize,
 		dither: *const c_char,
@@ -23,22 +23,36 @@ unsafe extern "C" {
 
 #[derive(Parser, Debug)]
 #[command(
-	disable_help_flag = true,
-	disable_help_subcommand = true,
-	args_conflicts_with_subcommands = true
+  styles = clap::builder::Styles::plain(),
+  disable_help_subcommand = true,
 )]
 struct Args {
 	#[command(subcommand)]
-	command: Option<Command>,
+	command: Command,
+}
 
+#[derive(Subcommand, Debug)]
+enum Command {
+	/// Recolor an image to a palette
+	#[command(disable_help_flag = true)]
+	Apply(ApplyArgs),
+	/// Inspect the built-in palette presets
+	Palette {
+		#[command(subcommand)]
+		action: PaletteArgs,
+	},
+}
+
+#[derive(clap::Args, Debug)]
+struct ApplyArgs {
 	input: Option<Box<Path>>,
 	output: Option<Box<Path>>,
 
-	/// Built-in palette preset (see `repalette palette list`)
+	/// Built-in preset (see `repalette palette list`)
 	#[arg(short, long)]
 	palette: Option<Box<str>>,
 
-	/// Manual palette: comma-separated hex colors, e.g. 000000,ffffff
+	/// Manual palette, e.g. 000000,ffffff
 	#[arg(short = 'c', long, conflicts_with = "palette")]
 	colors: Option<Box<str>>,
 
@@ -50,19 +64,10 @@ struct Args {
 }
 
 #[derive(Subcommand, Debug)]
-enum Command {
-	/// Inspect the built-in palette presets
-	Palette {
-		#[command(subcommand)]
-		action: PaletteAction,
-	},
-}
-
-#[derive(Subcommand, Debug)]
-enum PaletteAction {
-	/// List every preset name
+enum PaletteArgs {
+	/// List every palette name
 	List,
-	/// Print a preset's colors
+	/// Print a palette's colors
 	Show { name: Box<str> },
 }
 
@@ -71,11 +76,11 @@ fn unknown_preset(name: &str) -> ! {
 	std::process::exit(1);
 }
 
-fn run_palette(action: PaletteAction) {
+fn run_palette(action: PaletteArgs) {
 	let mut out = std::io::stdout().lock();
 	match action {
-		PaletteAction::List => palettes::write_names(&mut out).unwrap(),
-		PaletteAction::Show { name } => match palettes::get(&name) {
+		PaletteArgs::List => palettes::write_names(&mut out).unwrap(),
+		PaletteArgs::Show { name } => match palettes::get(&name) {
 			Some(colors) => {
 				for (i, color) in colors.iter().enumerate() {
 					if i > 0 {
@@ -124,15 +129,15 @@ impl Palette {
 }
 
 fn main() {
-	let args = Args::parse();
+	match Args::parse().command {
+		Command::Apply(args) => run_apply(args),
+		Command::Palette { action } => run_palette(action),
+	}
+}
 
+fn run_apply(args: ApplyArgs) {
 	if args.help {
 		unsafe { repalette_help() };
-		return;
-	}
-
-	if let Some(Command::Palette { action }) = args.command {
-		run_palette(action);
 		return;
 	}
 
@@ -142,6 +147,8 @@ fn main() {
 	let (input, output) = match (args.input.as_deref(), args.output.as_deref()) {
 		(None, _) => {
 			eprintln!("ERROR: input file not provided");
+			eprintln!();
+			eprintln!("For more information, try '--help'.");
 			std::process::exit(1);
 		}
 		(_, None) => {

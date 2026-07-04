@@ -54,37 +54,15 @@ cargo build --release --features wasm
 
 ### CLI version
 
-```yaml
-USAGE:
-  repalette -h | --help
-  repalette <input file> <output file> [options]
-  repalette palette list
-  repalette palette show <name>
-
-OPTIONS:
-  -p, --palette <name>          Built-in preset (see 'palette list')
-  -c, --colors COLOR[,COLOR...] Manual palette, e.g. 000000,ffffff
-  -d, --dither <ditherer>
-
-DITHERER: none | fs | atkinson | jjn | burkes | sierra32 | sierra4
-  none     - No dithering
-  fs       - Floyd-Steinberg
-  atkinson - Atkinson
-  jjn      - Jarvis, Judice, and Ninke
-  burkes   - Burkes
-  sierra32 - Sierra
-  sierra4  - Sierra Lite
-```
-
-Example:
+Examples:
 
 ```
 # a built-in preset
-repalette input.jpg output.png -p nord
+repalette apply input.jpg output.png -p nord
 
 # a manual palette (6-digit hex, no '#')
-repalette input.jpg output-no-dither.png -c 000000,ff0000,ffffff --dither none
-repalette input.jpg output-burkes.png -c 000000,ff0000,ffffff --dither burkes
+repalette apply input.jpg output-no-dither.png -c 000000,ff0000,ffffff --dither none
+repalette apply input.jpg output-burkes.png -c 000000,ff0000,ffffff --dither burkes
 
 # browse the presets
 repalette palette list
@@ -94,6 +72,8 @@ repalette palette show gruvbox-dark
 | input.jpg          | output-no-dither.png          | output-burkes.png          |
 | ------------------ | ----------------------------- | -------------------------- |
 | ![](img/input.jpg) | ![](img/output-no-dither.png) | ![](img/output-burkes.png) |
+
+Run `repalette --help` to learn more 
 
 ### Web version
 
