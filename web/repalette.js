@@ -123,39 +123,47 @@ paletteExport.addEventListener('blur', e => {
   for (const line of e.target.value.split('\n')) if (isHex(line)) addColor(line)
 })
 
-fetch('https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json').then(async response => {
-  const data = await response.json()
+const paletteSelector = document.querySelector('#palette-select')
+const palettePlaceholder = paletteSelector.querySelector('option')
+palettePlaceholder.textContent = 'Select palette'
 
-  const paletteSelector = document.querySelector('#palette-select')
-  paletteSelector.querySelector('option').textContent = 'Select palette'
+// The bundled Gogh presets: one "name: rrggbb,rrggbb,..." line per palette.
+fetch('./palettes.txt').then(async response => {
+  if (!response.ok) throw new Error('HTTP ' + response.status)
+  const text = await response.text()
 
-  const themes = new Array(data.length)
-  for (let i = 0; i < data.length; ++i) {
-    const {name} = data[i]
+  const themes = []
+  for (const line of text.split('\n')) {
+    const [l, r] = line.split(':')
+    if (l === undefined || r === undefined) continue;
 
-    const palette = new Set()
-    for (const value of Object.values(data[i])) {
-      if (isHex(value)) palette.add(value)
+    const name = l.split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+
+    const colors = r.trimStart().split(',')
+    const palette = new Array(colors.length)
+    for (let i = 0; i < colors.length; ++i) {
+      palette[i] = '#' +colors[i]
     }
 
-    themes[i] = { name, palette: Array.from(palette) }
-
     const option = document.createElement('option')
-    option.value = i
+    option.value = themes.length
     option.textContent = name
-
     paletteSelector.appendChild(option)
+
+    themes.push({ name, palette })
   }
 
   paletteSelector.addEventListener('change', e => {
-    if (e.value == "-1") return
+    const theme = themes[e.target.value]
+    if (!theme) return
 
     for (const color of document.querySelectorAll('.color')) color.remove()
-
-    for (const color of themes[e.target.value].palette) addColor(color)
+    for (const color of theme.palette) addColor(color)
   })
 }).catch(e => {
-  option.textContent = 'ERROR: Failed to fetch colors from Gosh'
+  palettePlaceholder.textContent = 'ERROR: Failed to fetch palettes'
   throw e
 })
 
