@@ -44,8 +44,14 @@ static int parse_palette(const char* param, Palette* palette) {
 
 	size = 0;
 	Hex hex = 0;
+	int digits = 0;
 	for (const char* c = param; *c != '\0'; ++c) {
 		if (*c == ',') {
+			if (digits != 6) {
+				fprintf(stderr, "ERROR: Each color must be 6 hex digits\n");
+				return 1;
+			}
+
 			Color color = from_hex(hex);
 			rs[size] = color.r;
 			gs[size] = color.g;
@@ -53,6 +59,7 @@ static int parse_palette(const char* param, Palette* palette) {
 
 			size += 1;
 			hex = 0;
+			digits = 0;
 			continue;
 		}
 		hex *= 16;
@@ -65,6 +72,12 @@ static int parse_palette(const char* param, Palette* palette) {
 			fprintf(stderr, "ERROR: Unsupported character '%c' in color\n", *c);
 			return 1;
 		}
+		digits += 1;
+	}
+
+	if (digits != 6) {
+		fprintf(stderr, "ERROR: Each color must be 6 hex digits\n");
+		return 1;
 	}
 
 	Color color = from_hex(hex);
@@ -124,9 +137,16 @@ void repalette_help(void) {
 	printf("USAGE:\n");
 	printf("  repalette -h | --help\n");
 	printf("  repalette <input file> <output file> [options]\n");
+	printf("  repalette palette list\n");
+	printf("  repalette palette show <name>\n");
 	printf("\n");
 	printf("OPTIONS:\n");
-	printf("  -p, --palette COLOR[,COLOR...]\n");
+	printf(
+		"  -p, --palette <name>          Built-in preset (see 'palette list')\n"
+	);
+	printf(
+		"  -c, --colors COLOR[,COLOR...] Manual palette, e.g. 000000,ffffff\n"
+	);
 	printf("  -d, --dither <ditherer>\n");
 	printf("\n");
 
