@@ -874,6 +874,7 @@ dependencies = [
  "cc",
  "clap",
  "image",
+ "png",
 ]
 
 [[package]]

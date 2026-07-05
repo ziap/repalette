@@ -13,6 +13,16 @@ mod c {
 			ditherer: c_int,
 		) -> c_int;
 
+		pub fn repalette_process_index(
+			pixels: *mut u8,
+			width: c_int,
+			height: c_int,
+			colors: *const u32,
+			count: usize,
+			ditherer: c_int,
+			out: *mut u8,
+		) -> c_int;
+
 		pub fn ditherer_count() -> c_int;
 		pub fn ditherer_name(index: c_int) -> *const c_char;
 		pub fn ditherer_display(index: c_int) -> *const c_char;
@@ -67,5 +77,30 @@ pub fn process(img: &mut Image, colors: &[u32], ditherer: &str) -> Result<(), Pr
 		} else {
 			Err(ProcessingError { status })
 		}
+	}
+}
+
+pub fn process_index(
+	img: &mut Image,
+	colors: &[u32],
+	ditherer: &str,
+) -> Result<Vec<u8>, ProcessingError> {
+	let mut out = vec![0u8; (img.width * img.height) as usize];
+	let status = unsafe {
+		c::repalette_process_index(
+			img.pixels.as_mut_ptr(),
+			img.width as c_int,
+			img.height as c_int,
+			colors.as_ptr(),
+			colors.len(),
+			dither_index(ditherer),
+			out.as_mut_ptr(),
+		)
+	};
+
+	if status == 0 {
+		Ok(out)
+	} else {
+		Err(ProcessingError { status })
 	}
 }

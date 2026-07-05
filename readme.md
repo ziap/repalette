@@ -12,6 +12,7 @@ a CLI utility and a web application.
 - SIMD accelerated palette search and dithering.
 - Built-in palette presets from [Gogh](https://gogh-co.github.io/Gogh/),
   bundled into the binary at compile time.
+- Optimized encoding for small-palette PNG export.
 
 **Web-version:**
 
