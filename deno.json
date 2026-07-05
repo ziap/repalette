@@ -27,7 +27,6 @@
 		}
 	},
 	"tasks": {
-		"format": "clang-format -i repalette-sys/*.c repalette-sys/*.h && cargo fmt && deno fmt",
-		"palettes": "deno run --allow-net=raw.githubusercontent.com --allow-write=src scripts/fetch-palettes.ts && cp src/palettes.txt web/palettes.txt"
+		"format": "clang-format -i repalette-sys/*.c repalette-sys/*.h && cargo fmt && deno fmt"
 	}
 }
