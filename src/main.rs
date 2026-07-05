@@ -3,8 +3,7 @@ use std::path::Path;
 
 use clap::builder::{PossibleValue, PossibleValuesParser};
 use clap::{Parser, Subcommand};
-use image::error::UnsupportedErrorKind;
-use image::{DynamicImage, ImageError, ImageReader};
+use image::{ImageReader, RgbImage};
 
 mod palettes;
 mod repalette;
@@ -38,9 +37,9 @@ enum Command {
 #[derive(clap::Args, Debug)]
 struct ApplyArgs {
 	/// Path to the source image
-	input: Option<Box<Path>>,
+	input: Box<Path>,
 	/// Path to write the recolored image
-	output: Option<Box<Path>>,
+	output: Box<Path>,
 
 	/// Built-in palette (see `repalette palette list`)
 	#[arg(short, long)]
@@ -139,25 +138,11 @@ fn run_apply(args: ApplyArgs) {
 	let palette = Palette::resolve(args.palette.as_deref(), args.colors);
 	let colors = palette.as_slice();
 
-	let (input, output) = match (args.input.as_deref(), args.output.as_deref()) {
-		(None, _) => {
-			eprintln!("ERROR: input file not provided");
-			eprintln!();
-			eprintln!("For more information, try '--help'.");
-			std::process::exit(1);
-		}
-		(_, None) => {
-			eprintln!("ERROR: output file not provided");
-			std::process::exit(1);
-		}
-		(Some(input), Some(output)) => (input, output),
-	};
-
-	let image = ImageReader::open(input)
+	let img = ImageReader::open(&args.input)
 		.unwrap_or_else(|error| {
 			eprintln!(
 				"ERROR: Failed to open image '{}': {}",
-				input.display(),
+				args.input.display(),
 				error
 			);
 			std::process::exit(1);
@@ -166,7 +151,7 @@ fn run_apply(args: ApplyArgs) {
 		.unwrap_or_else(|error| {
 			eprintln!(
 				"ERROR: Failed to detect image format of '{}': {}",
-				input.display(),
+				args.input.display(),
 				error
 			);
 			std::process::exit(1);
@@ -175,37 +160,37 @@ fn run_apply(args: ApplyArgs) {
 		.unwrap_or_else(|error| {
 			eprintln!(
 				"ERROR: Failed to decode image '{}': {}",
-				input.display(),
+				args.input.display(),
 				error
 			);
 			std::process::exit(1);
 		})
 		.into_rgba8();
 
-	let width = image.width();
-	let height = image.height();
-	let mut pixels = image.into_raw();
+	let width = img.width();
+	let height = img.height();
+	let mut pixels = img.into_raw();
 
 	repalette::process(&mut pixels, width, height, colors, &args.dither).unwrap_or_else(|err| {
 		std::process::exit(err.status);
 	});
 
-	let image = image::RgbaImage::from_raw(width, height, pixels).unwrap();
+	// Convert to RGB
+	for idx in 0..(width * height) as usize {
+		let src = idx * 4..idx * 4 + 4;
+		let dst = idx * 3;
+		pixels.copy_within(src, dst);
+	}
 
-	let result = match image.save(output) {
-		Err(ImageError::Unsupported(e)) if let UnsupportedErrorKind::Color(_) = e.kind() => {
-			// Encoder rejected RGBA (e.g. JPEG) — drop alpha and retry as RGB.
-			DynamicImage::ImageRgba8(image).into_rgb8().save(output)
-		}
-		other => other,
-	};
-
-	result.unwrap_or_else(|error| {
-		eprintln!(
-			"ERROR: Failed to save image '{}': {}",
-			output.display(),
-			error
-		);
-		std::process::exit(1);
-	});
+	RgbImage::from_raw(width, height, pixels)
+		.unwrap()
+		.save(&args.output)
+		.unwrap_or_else(|error| {
+			eprintln!(
+				"ERROR: Failed to save image '{}': {}",
+				args.output.display(),
+				error
+			);
+			std::process::exit(1);
+		});
 }
