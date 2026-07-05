@@ -4,7 +4,7 @@ use std::path::Path;
 use clap::builder::{PossibleValue, PossibleValuesParser};
 use clap::{Parser, Subcommand};
 
-use crate::imgio::Image;
+use crate::imgio::{Image, IndexedImage};
 use crate::repalette::Ditherer;
 
 mod imgio;
@@ -144,17 +144,38 @@ fn run_apply(args: ApplyArgs) {
 	let palette = Palette::resolve(args.palette.as_deref(), args.colors);
 	let colors = palette.as_slice();
 
+	let format = image::ImageFormat::from_path(&args.output).unwrap_or_else(|err| {
+		eprintln!("Failed to detect output format: {err}");
+		std::process::exit(1);
+	});
+
 	let mut img = Image::read(&args.input).unwrap_or_else(|err| {
 		eprintln!("{err}");
 		std::process::exit(1);
 	});
 
-	repalette::process(&mut img, colors, &args.dither).unwrap_or_else(|err| {
-		std::process::exit(err.status);
-	});
+	if format == image::ImageFormat::Png && colors.len() <= 256 {
+		let indices = repalette::process_index(&mut img, colors, &args.dither)
+			.unwrap_or_else(|err| std::process::exit(err.status));
 
-	img.write(&args.output).unwrap_or_else(|err| {
-		eprintln!("{err}");
-		std::process::exit(1);
-	});
+		let indexed = IndexedImage {
+			width: img.width,
+			height: img.height,
+			indices,
+			colors,
+		};
+
+		indexed.write_png(&args.output).unwrap_or_else(|err| {
+			eprintln!("{err}");
+			std::process::exit(1);
+		});
+	} else {
+		repalette::process(&mut img, colors, &args.dither)
+			.unwrap_or_else(|err| std::process::exit(err.status));
+
+		img.write(&args.output, format).unwrap_or_else(|err| {
+			eprintln!("{err}");
+			std::process::exit(1);
+		});
+	}
 }

@@ -142,34 +142,45 @@ static int find_nearest(Palette palette, Color c) {
 	return best;
 }
 
-#define X(name)                                            \
-	static void recolor_##name(Image img, Palette palette) { \
-		for (int y = 0; y < img.height; ++y) {                 \
-			for (int x = 0; x < img.width; ++x) {                \
-				size_t idx = CHANNELS * (y * img.width + x);       \
-                                                           \
-				Color old_color = {                                \
-					img.pixels[idx + 0],                             \
-					img.pixels[idx + 1],                             \
-					img.pixels[idx + 2],                             \
-				};                                                 \
-                                                           \
-				int best = find_nearest(palette, old_color);       \
-                                                           \
-				i32x4 error = {                                    \
-					old_color.r - palette.rs[best],                  \
-					old_color.g - palette.gs[best],                  \
-					old_color.b - palette.bs[best],                  \
-					0,                                               \
-				};                                                 \
-                                                           \
-				img.pixels[idx + 0] = palette.rs[best];            \
-				img.pixels[idx + 1] = palette.gs[best];            \
-				img.pixels[idx + 2] = palette.bs[best];            \
-                                                           \
-				dither_##name(img, x, y, error);                   \
-			}                                                    \
-		}                                                      \
+#define RECOLOR_BODY(name, WRITE)                  \
+	for (int y = 0; y < img.height; ++y) {           \
+		for (int x = 0; x < img.width; ++x) {          \
+			size_t pos = (size_t)(y * img.width + x);    \
+			size_t idx = CHANNELS * pos;                 \
+                                                   \
+			Color old_color = {                          \
+				img.pixels[idx + 0],                       \
+				img.pixels[idx + 1],                       \
+				img.pixels[idx + 2],                       \
+			};                                           \
+                                                   \
+			int best = find_nearest(palette, old_color); \
+                                                   \
+			i32x4 error = {                              \
+				old_color.r - palette.rs[best],            \
+				old_color.g - palette.gs[best],            \
+				old_color.b - palette.bs[best],            \
+				0,                                         \
+			};                                           \
+                                                   \
+			WRITE;                                       \
+                                                   \
+			dither_##name(img, x, y, error);             \
+		}                                              \
+	}
+
+#define X(name)                                                           \
+	static void recolor_##name(Image img, Palette palette) {                \
+		RECOLOR_BODY(                                                         \
+			name, do {                                                          \
+				img.pixels[idx + 0] = palette.rs[best];                           \
+				img.pixels[idx + 1] = palette.gs[best];                           \
+				img.pixels[idx + 2] = palette.bs[best];                           \
+			} while (0)                                                         \
+		)                                                                     \
+	}                                                                       \
+	static void recolor_index_##name(Image img, Palette palette, u8 *out) { \
+		RECOLOR_BODY(name, out[pos] = (u8)best)                               \
 	}
 
 DITHERERS(X)
@@ -179,6 +190,17 @@ void recolor(Image img, Palette palette, Ditherer dither) {
 	switch (dither) {
 #define X(e) \
 	case e: recolor_##e(img, palette); break;
+		DITHERERS(X)
+#undef X
+		case DITHER_INVALID: break;
+		case DITHER_COUNT: __builtin_unreachable(); break;
+	}
+}
+
+void recolor_index(Image img, Palette palette, Ditherer dither, u8 *out) {
+	switch (dither) {
+#define X(e) \
+	case e: recolor_index_##e(img, palette, out); break;
 		DITHERERS(X)
 #undef X
 		case DITHER_INVALID: break;

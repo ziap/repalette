@@ -18,13 +18,10 @@ const char* ditherer_name(int i) { return dither_names[i]; }
 
 const char* ditherer_display(int i) { return dither_display_names[i]; }
 
-int repalette_process(
-	u8* pixels, int width, int height, const uint32_t* colors, size_t count,
-	int ditherer
-) {
+static int* build_palette(const uint32_t* colors, size_t count, Palette* pal) {
 	size_t size = (count + 3) / 4 * 4;
 	int* buffer = malloc(3 * size * sizeof(int));
-	if (!buffer) return 1;
+	if (!buffer) return NULL;
 
 	int* rs = buffer + 0 * size;
 	int* gs = buffer + 1 * size;
@@ -44,15 +41,39 @@ int repalette_process(
 		bs[i] = last.b;
 	}
 
-	Palette pal = {
-		.size = size,
-		.rs = rs,
-		.gs = gs,
-		.bs = bs,
-	};
+	pal->size = size;
+	pal->rs = rs;
+	pal->gs = gs;
+	pal->bs = bs;
+
+	return buffer;
+}
+
+int repalette_process(
+	u8* pixels, int width, int height, const uint32_t* colors, size_t count,
+	int ditherer
+) {
+	Palette pal;
+	int* buffer = build_palette(colors, count, &pal);
+	if (!buffer) return 1;
 
 	Image img = {pixels, width, height};
 	recolor(img, pal, (Ditherer)ditherer);
+
+	free(buffer);
+	return 0;
+}
+
+int repalette_process_index(
+	u8* pixels, int width, int height, const uint32_t* colors, size_t count,
+	int ditherer, u8* out
+) {
+	Palette pal;
+	int* buffer = build_palette(colors, count, &pal);
+	if (!buffer) return 1;
+
+	Image img = {pixels, width, height};
+	recolor_index(img, pal, (Ditherer)ditherer, out);
 
 	free(buffer);
 	return 0;
