@@ -1,3 +1,4 @@
+use crate::imgio::Image;
 use std::ffi::{CStr, c_char, c_int};
 
 mod c {
@@ -50,18 +51,12 @@ pub struct ProcessingError {
 	pub status: c_int,
 }
 
-pub fn process(
-	pixels: &mut [u8],
-	width: u32,
-	height: u32,
-	colors: &[u32],
-	ditherer: &str,
-) -> Result<(), ProcessingError> {
+pub fn process(img: &mut Image, colors: &[u32], ditherer: &str) -> Result<(), ProcessingError> {
 	unsafe {
 		let status = c::repalette_process(
-			pixels.as_mut_ptr(),
-			width as c_int,
-			height as c_int,
+			img.pixels.as_mut_ptr(),
+			img.width as c_int,
+			img.height as c_int,
 			colors.as_ptr(),
 			colors.len(),
 			dither_index(ditherer),

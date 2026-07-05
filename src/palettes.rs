@@ -1,20 +1,20 @@
+use std::fmt::{self, Display, Formatter};
 use std::io::{self, Write};
 
 const RAW: &[u8] = include_bytes!("palettes.txt");
 
-#[derive(Clone, Copy)]
 pub enum ColorError {
 	BadChar(u8),
 	WrongDigits,
 }
 
-impl ColorError {
-	pub fn message(self) -> String {
+impl Display for ColorError {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			ColorError::BadChar(c) => {
-				format!("ERROR: Unsupported character '{}' in color", c as char)
+			&Self::BadChar(c) => {
+				write!(f, "Unsupported character '{}' in color", char::from(c))
 			}
-			ColorError::WrongDigits => "ERROR: Each color must be 6 hex digits".to_string(),
+			Self::WrongDigits => f.write_str("Each color must be 6 hex digits"),
 		}
 	}
 }
