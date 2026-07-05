@@ -3,8 +3,11 @@ use std::path::Path;
 
 use clap::builder::{PossibleValue, PossibleValuesParser};
 use clap::{Parser, Subcommand};
-use image::{ImageReader, RgbImage};
 
+use crate::imgio::Image;
+use crate::repalette::Ditherer;
+
+mod imgio;
 mod palettes;
 mod repalette;
 
@@ -13,7 +16,10 @@ fn dither_values() -> PossibleValuesParser {
 
 	ditherers
 		.iter()
-		.map(|ditherer| PossibleValue::new(ditherer.name).help(ditherer.display_name))
+		.map(|ditherer| {
+			let Ditherer { name, display_name } = ditherer;
+			PossibleValue::new(name).help(display_name)
+		})
 		.into()
 }
 
@@ -117,8 +123,8 @@ impl Palette {
 			},
 			(None, Some(s)) => match palettes::parse_palette(&s) {
 				Ok(v) => Palette::Custom(v),
-				Err(e) => {
-					eprintln!("{}", e.message());
+				Err(err) => {
+					eprintln!("{err}");
 					std::process::exit(1);
 				}
 			},
@@ -138,59 +144,17 @@ fn run_apply(args: ApplyArgs) {
 	let palette = Palette::resolve(args.palette.as_deref(), args.colors);
 	let colors = palette.as_slice();
 
-	let img = ImageReader::open(&args.input)
-		.unwrap_or_else(|error| {
-			eprintln!(
-				"ERROR: Failed to open image '{}': {}",
-				args.input.display(),
-				error
-			);
-			std::process::exit(1);
-		})
-		.with_guessed_format()
-		.unwrap_or_else(|error| {
-			eprintln!(
-				"ERROR: Failed to detect image format of '{}': {}",
-				args.input.display(),
-				error
-			);
-			std::process::exit(1);
-		})
-		.decode()
-		.unwrap_or_else(|error| {
-			eprintln!(
-				"ERROR: Failed to decode image '{}': {}",
-				args.input.display(),
-				error
-			);
-			std::process::exit(1);
-		})
-		.into_rgba8();
+	let mut img = Image::read(&args.input).unwrap_or_else(|err| {
+		eprintln!("{err}");
+		std::process::exit(1);
+	});
 
-	let width = img.width();
-	let height = img.height();
-	let mut pixels = img.into_raw();
-
-	repalette::process(&mut pixels, width, height, colors, &args.dither).unwrap_or_else(|err| {
+	repalette::process(&mut img, colors, &args.dither).unwrap_or_else(|err| {
 		std::process::exit(err.status);
 	});
 
-	// Convert to RGB
-	for idx in 0..(width * height) as usize {
-		let src = idx * 4..idx * 4 + 4;
-		let dst = idx * 3;
-		pixels.copy_within(src, dst);
-	}
-
-	RgbImage::from_raw(width, height, pixels)
-		.unwrap()
-		.save(&args.output)
-		.unwrap_or_else(|error| {
-			eprintln!(
-				"ERROR: Failed to save image '{}': {}",
-				args.output.display(),
-				error
-			);
-			std::process::exit(1);
-		});
+	img.write(&args.output).unwrap_or_else(|err| {
+		eprintln!("{err}");
+		std::process::exit(1);
+	});
 }
