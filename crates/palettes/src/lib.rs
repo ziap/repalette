@@ -297,12 +297,11 @@ pub fn get(name: &str) -> Option<&'static [u32]> {
 	}
 
 	let bin = len - MIN_LEN;
-	let mut koff = MAP.key_off[bin];
-	for i in MAP.starts[bin]..MAP.starts[bin + 1] {
-		if &MAP.key_pool[koff..koff + len] == key {
+	let bucket = &MAP.key_pool[MAP.key_off[bin]..MAP.key_off[bin + 1]];
+	for (chunk, i) in bucket.chunks_exact(len).zip(MAP.starts[bin]..) {
+		if chunk == key {
 			return Some(&MAP.value_pool[MAP.val_off[i]..MAP.val_off[i + 1]]);
 		}
-		koff += len;
 	}
 	None
 }
