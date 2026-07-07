@@ -1,12 +1,13 @@
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::Path;
+use std::process;
 
 use clap::builder::{PossibleValue, PossibleValuesParser};
 use clap::{Parser, Subcommand};
 
 use crate::imgio::{ImageIo, IndexedImage};
 use repalette_core::{self as repalette, Ditherer, Image};
-use repalette_palettes as palettes;
+use repalette_palettes::{self as palettes, ColorError, Palette, PaletteError};
 
 mod imgio;
 
@@ -76,60 +77,65 @@ enum PaletteArgs {
 }
 
 fn unknown_preset(name: &str) -> ! {
-	eprintln!("ERROR: unknown palette preset '{name}' (try `repalette palette list`)");
-	std::process::exit(1);
+	eprintln!("Error: unknown palette preset '{name}' (try `repalette palette list`)");
+	process::exit(1);
+}
+
+fn invalid_palette(err: PaletteError) -> ! {
+	// Colors are raw `&[u8]`, so write them straight through instead of going
+	// via a UTF-8 string.
+	let mut out = io::stderr().lock();
+	match err {
+		PaletteError::NotFound(name) => unknown_preset(name),
+		PaletteError::ParseError(ColorError::BadChar { color, pos }) => {
+			let (prefix, mid) = (b"Error: Invalid char '", b"' in color '");
+			_ = out.write_all(prefix);
+			_ = out.write_all(&[color[pos]]);
+			_ = out.write_all(mid);
+			_ = out.write_all(color);
+			_ = out.write_all(b"'\n");
+
+			// Caret line, aligned under the color token.
+			let indent = prefix.len() + 1 + mid.len();
+			let mut caret = vec![b' '; indent];
+			caret.extend((0..color.len()).map(|i| if i == pos { b'^' } else { b'~' }));
+			caret.push(b'\n');
+			_ = out.write_all(&caret);
+
+			process::exit(1);
+		}
+		PaletteError::ParseError(ColorError::WrongDigits(color)) => {
+			let _ = out.write_all(b"Error: Palette must be 6 hex digits, '");
+			let _ = out.write_all(color);
+			let _ = write!(out, "' has {}", color.len());
+			let _ = out.write_all(b"\n");
+			process::exit(1);
+		}
+	}
 }
 
 fn run_palette(action: PaletteArgs) {
 	let mut out = std::io::stdout().lock();
 	match action {
-		PaletteArgs::List => palettes::write_names(&mut out).unwrap(),
+		PaletteArgs::List => {
+			for &name in &palettes::NAMES {
+				_ = out.write_all(name);
+				_ = out.write_all(b"\n");
+			}
+		}
 		PaletteArgs::Show { name } => match palettes::get(&name) {
 			Some(colors) => {
 				for (i, color) in colors.iter().enumerate() {
 					if i > 0 {
-						out.write_all(b",").unwrap();
+						_ = out.write_all(b",");
 					}
-					write!(out, "{color:06x}").unwrap();
+					_ = write!(out, "{color:06x}");
 				}
-				out.write_all(b"\n").unwrap();
+				_ = out.write_all(b"\n");
 			}
 			None => unknown_preset(&name),
 		},
-	}
-}
-
-enum Palette {
-	Preset(&'static [u32]),
-	Custom(Box<[u32]>),
-}
-
-impl Palette {
-	const DEFAULT: Self = Self::Preset(&[0x000000, 0xffffff]);
-
-	fn as_slice(&self) -> &[u32] {
-		match self {
-			Palette::Preset(s) => s,
-			Palette::Custom(v) => v,
-		}
-	}
-
-	fn resolve(preset: Option<&str>, colors: Option<Box<str>>) -> Self {
-		match (preset, colors) {
-			(Some(name), _) => match palettes::get(name) {
-				Some(c) => Self::Preset(c),
-				None => unknown_preset(name),
-			},
-			(None, Some(s)) => match palettes::parse_palette(&s) {
-				Ok(v) => Palette::Custom(v),
-				Err(err) => {
-					eprintln!("{err}");
-					std::process::exit(1);
-				}
-			},
-			(None, None) => Self::DEFAULT,
-		}
-	}
+	};
 }
 
 fn main() {
@@ -140,22 +146,26 @@ fn main() {
 }
 
 fn run_apply(args: ApplyArgs) {
-	let palette = Palette::resolve(args.palette.as_deref(), args.colors);
+	let preset = args.palette.as_deref();
+	let custom = args.colors.as_deref();
+
+	let palette = Palette::resolve(preset, custom).unwrap_or_else(|err| invalid_palette(err));
+
 	let colors = palette.as_slice();
 
 	let format = image::ImageFormat::from_path(&args.output).unwrap_or_else(|err| {
 		eprintln!("Failed to detect output format: {err}");
-		std::process::exit(1);
+		process::exit(1);
 	});
 
 	let mut img = Image::read(&args.input).unwrap_or_else(|err| {
 		eprintln!("{err}");
-		std::process::exit(1);
+		process::exit(1);
 	});
 
 	if format == image::ImageFormat::Png && colors.len() <= 256 {
 		let indices = repalette::process_index(&mut img, colors, &args.dither)
-			.unwrap_or_else(|err| std::process::exit(err.status));
+			.unwrap_or_else(|err| process::exit(err.status));
 
 		let indexed = IndexedImage {
 			width: img.width,
@@ -166,15 +176,15 @@ fn run_apply(args: ApplyArgs) {
 
 		indexed.write_png(&args.output).unwrap_or_else(|err| {
 			eprintln!("{err}");
-			std::process::exit(1);
+			process::exit(1);
 		});
 	} else {
 		repalette::process(&mut img, colors, &args.dither)
-			.unwrap_or_else(|err| std::process::exit(err.status));
+			.unwrap_or_else(|err| process::exit(err.status));
 
 		img.write(&args.output, format).unwrap_or_else(|err| {
 			eprintln!("{err}");
-			std::process::exit(1);
+			process::exit(1);
 		});
 	}
 }

@@ -1,22 +1,15 @@
-use std::fmt::{self, Display, Formatter};
-use std::io::{self, Write};
+#![no_std]
+
+extern crate alloc;
+
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 const RAW: &[u8] = include_bytes!("data/palettes.txt");
 
-pub enum ColorError {
-	BadChar(u8),
-	WrongDigits,
-}
-
-impl Display for ColorError {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		match self {
-			&Self::BadChar(c) => {
-				write!(f, "Unsupported character '{}' in color", char::from(c))
-			}
-			Self::WrongDigits => f.write_str("Each color must be 6 hex digits"),
-		}
-	}
+pub enum ColorError<'a> {
+	BadChar { color: &'a [u8], pos: usize },
+	WrongDigits(&'a [u8]),
 }
 
 const fn subbytes(bytes: &[u8], start: usize, end: usize) -> &[u8] {
@@ -28,7 +21,7 @@ struct HexResult {
 	next: usize,
 }
 
-const fn parse_hex(b: &[u8], pos: usize) -> Result<HexResult, ColorError> {
+const fn parse_hex<'a>(b: &'a [u8], pos: usize) -> Result<HexResult, ColorError<'a>> {
 	let mut next = pos;
 	let mut color = 0u32;
 	let mut digits = 0u32;
@@ -38,34 +31,33 @@ const fn parse_hex(b: &[u8], pos: usize) -> Result<HexResult, ColorError> {
 			b'0'..=b'9' => c - b'0',
 			b'a'..=b'f' => c - b'a' + 10,
 			b'A'..=b'F' => c - b'A' + 10,
-			_ => return Err(ColorError::BadChar(c)),
+			_ => {
+				let mut end = next;
+				while end < b.len() && b[end] != b',' {
+					end += 1;
+				}
+				return Err(ColorError::BadChar {
+					color: subbytes(b, pos, end),
+					pos: next - pos,
+				});
+			}
 		} as u32;
 		digits += 1;
 		if digits > 6 {
-			return Err(ColorError::WrongDigits);
+			let mut end = next;
+			while end < b.len() && b[end] != b',' {
+				end += 1;
+			}
+			return Err(ColorError::WrongDigits(subbytes(b, pos, end)));
 		}
 		color = (color << 4) | d;
 		next += 1;
 	}
 
 	if digits != 6 {
-		Err(ColorError::WrongDigits)
+		Err(ColorError::WrongDigits(subbytes(b, pos, next)))
 	} else {
 		Ok(HexResult { color, next })
-	}
-}
-
-pub fn parse_palette(s: &str) -> Result<Box<[u32]>, ColorError> {
-	let b = s.as_bytes();
-	let mut out = Vec::new();
-	let mut pos = 0;
-	loop {
-		let HexResult { color, next } = parse_hex(b, pos)?;
-		out.push(color);
-		if next >= b.len() {
-			return Ok(out.into());
-		}
-		pos = next + 1; // skip the comma
 	}
 }
 
@@ -275,10 +267,10 @@ const MAP: StringMap = {
 					vp += 1;
 					p = if next < colors.len() { next + 1 } else { next };
 				}
-				Err(ColorError::BadChar(_)) => {
+				Err(ColorError::BadChar { .. }) => {
 					panic!("palettes.txt: colors must be hex digits")
 				}
-				Err(ColorError::WrongDigits) => {
+				Err(ColorError::WrongDigits(_)) => {
 					panic!("palettes.txt: each color must be 6 hex digits")
 				}
 			}
@@ -315,7 +307,7 @@ pub fn get(name: &str) -> Option<&'static [u32]> {
 	None
 }
 
-static NAMES: [&'static [u8]; N] = {
+pub const NAMES: [&'static [u8]; N] = {
 	let mut names: [&[u8]; N] = [&[]; N];
 	let mut j = 0;
 	while j < N {
@@ -326,10 +318,50 @@ static NAMES: [&'static [u8]; N] = {
 	names
 };
 
-pub fn write_names(mut w: impl Write) -> io::Result<()> {
-	for &name in &NAMES {
-		w.write_all(name)?;
-		w.write_all(b"\n")?;
+pub enum Palette {
+	Preset(&'static [u32]),
+	Custom(Box<[u32]>),
+}
+
+pub enum PaletteError<'a> {
+	NotFound(&'a str),
+	ParseError(ColorError<'a>),
+}
+
+fn parse_palette<'a>(s: &'a str) -> Result<Box<[u32]>, ColorError<'a>> {
+	let b = s.as_bytes();
+	let mut out = Vec::new();
+	let mut pos = 0;
+	loop {
+		let HexResult { color, next } = parse_hex(b, pos)?;
+		out.push(color);
+		if next >= b.len() {
+			return Ok(out.into());
+		}
+		pos = next + 1; // skip the comma
 	}
-	Ok(())
+}
+
+impl Palette {
+	const DEFAULT: Self = Self::Preset(&[0x000000, 0xffffff]);
+
+	pub fn as_slice(&self) -> &[u32] {
+		match self {
+			Palette::Preset(s) => s,
+			Palette::Custom(v) => v,
+		}
+	}
+
+	pub fn resolve<'a>(
+		preset: Option<&'a str>,
+		custom: Option<&'a str>,
+	) -> Result<Self, PaletteError<'a>> {
+		let palette = match (preset, custom) {
+			(Some(name), _) => Self::Preset(get(name).ok_or(PaletteError::NotFound(name))?),
+			(None, Some(s)) => Self::Custom(parse_palette(s).map_err(PaletteError::ParseError)?),
+			(None, None) => Self::DEFAULT,
+		};
+
+		Ok(palette)
+	}
 }
