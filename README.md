@@ -3,15 +3,14 @@
 Repalette is an image colorizer written in C and Rust. It is available as both
 a CLI utility and a web application.
 
-![](img/preview.png)
+![](.github/img/preview.png)
 
 ## Features
 
 - Recolor images using nearest neighbor search.
 - Optional dithering for smoother results.
 - SIMD accelerated palette search and dithering.
-- Built-in palette presets from [Gogh](https://gogh-co.github.io/Gogh/),
-  bundled into the binary at compile time.
+- Built-in palette presets bundled into the binary at compile time.
 - Optimized encoding for small-palette PNG export.
 
 **Web-version:**
@@ -41,14 +40,14 @@ To run the benchmark yourself:
 
 Build the native version
 
-```
+```sh
 cargo build --release
 ```
 
 Build the WASM version
 
-```
-sh build.sh
+```sh
+build.sh
 ```
 
 ## Usage
@@ -57,7 +56,7 @@ sh build.sh
 
 Examples:
 
-```
+```sh
 # a built-in preset
 repalette apply input.jpg output.png -p nord
 
@@ -70,9 +69,9 @@ repalette palette list
 repalette palette show gruvbox-dark
 ```
 
-| input.jpg          | output-no-dither.png          | output-burkes.png          |
-| ------------------ | ----------------------------- | -------------------------- |
-| ![](img/input.jpg) | ![](img/output-no-dither.png) | ![](img/output-burkes.png) |
+| input.jpg                  | output-no-dither.png                  | output-burkes.png                  |
+| -------------------------- | ------------------------------------- | ---------------------------------- |
+| ![](.github/img/input.jpg) | ![](.github/img/output-no-dither.png) | ![](.github/img/output-burkes.png) |
 
 Run `repalette --help` to learn more 
 
