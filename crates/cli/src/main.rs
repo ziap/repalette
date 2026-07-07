@@ -4,12 +4,11 @@ use std::path::Path;
 use clap::builder::{PossibleValue, PossibleValuesParser};
 use clap::{Parser, Subcommand};
 
-use crate::imgio::{Image, IndexedImage};
-use crate::repalette::Ditherer;
+use crate::imgio::{ImageIo, IndexedImage};
+use repalette_core::{self as repalette, Ditherer, Image};
+use repalette_palettes as palettes;
 
 mod imgio;
-mod palettes;
-mod repalette;
 
 fn dither_values() -> PossibleValuesParser {
 	let ditherers = repalette::get_ditherers();

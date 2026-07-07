@@ -1,7 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 use std::io::{self, Write};
 
-const RAW: &[u8] = include_bytes!("palettes.txt");
+const RAW: &[u8] = include_bytes!("data/palettes.txt");
 
 pub enum ColorError {
 	BadChar(u8),
@@ -19,7 +19,7 @@ impl Display for ColorError {
 	}
 }
 
-const fn subbytes(bytes: &'static [u8], start: usize, end: usize) -> &'static [u8] {
+const fn subbytes(bytes: &[u8], start: usize, end: usize) -> &[u8] {
 	bytes.split_at(end).0.split_at(start).1
 }
 
