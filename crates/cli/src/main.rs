@@ -87,6 +87,10 @@ fn invalid_palette(err: PaletteError) -> ! {
 	let mut out = io::stderr().lock();
 	match err {
 		PaletteError::NotFound(name) => unknown_preset(name),
+		PaletteError::TooLarge => {
+			eprintln!("Error: Palette too large, please enter only up to 256 colors");
+			process::exit(1);
+		}
 		PaletteError::ParseError(ColorError::BadChar { color, pos }) => {
 			let (prefix, mid) = (b"Error: Invalid char '", b"' in color '");
 			_ = out.write_all(prefix);
@@ -129,7 +133,8 @@ fn run_palette(action: PaletteArgs) {
 					if i > 0 {
 						_ = out.write_all(b",");
 					}
-					_ = write!(out, "{color:06x}");
+					let [r, g, b] = color;
+					_ = write!(out, "{r:02x}{g:02x}{b:02x}");
 				}
 				_ = out.write_all(b"\n");
 			}
@@ -164,8 +169,7 @@ fn run_apply(args: ApplyArgs) {
 	});
 
 	if format == image::ImageFormat::Png && colors.len() <= 256 {
-		let indices = repalette::process_index(&mut img, colors, &args.dither)
-			.unwrap_or_else(|err| process::exit(err.status));
+		let indices = repalette::process_index(&mut img, colors, &args.dither);
 
 		let indexed = IndexedImage {
 			width: img.width,
@@ -179,8 +183,7 @@ fn run_apply(args: ApplyArgs) {
 			process::exit(1);
 		});
 	} else {
-		repalette::process(&mut img, colors, &args.dither)
-			.unwrap_or_else(|err| process::exit(err.status));
+		repalette::process(&mut img, colors, &args.dither);
 
 		img.write(&args.output, format).unwrap_or_else(|err| {
 			eprintln!("{err}");

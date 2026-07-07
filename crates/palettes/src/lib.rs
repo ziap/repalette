@@ -1,10 +1,5 @@
 #![no_std]
 
-extern crate alloc;
-
-use alloc::boxed::Box;
-use alloc::vec::Vec;
-
 const RAW: &[u8] = include_bytes!("data/palettes.txt");
 
 pub enum ColorError<'a> {
@@ -17,7 +12,7 @@ const fn subbytes(bytes: &[u8], start: usize, end: usize) -> &[u8] {
 }
 
 struct HexResult {
-	color: u32,
+	color: [u8; 3],
 	next: usize,
 }
 
@@ -57,7 +52,10 @@ const fn parse_hex<'a>(b: &'a [u8], pos: usize) -> Result<HexResult, ColorError<
 	if digits != 6 {
 		Err(ColorError::WrongDigits(subbytes(b, pos, next)))
 	} else {
-		Ok(HexResult { color, next })
+		Ok(HexResult {
+			color: [(color >> 16) as u8, (color >> 8) as u8, color as u8],
+			next,
+		})
 	}
 }
 
@@ -140,6 +138,11 @@ const SIZES: Sizes = {
 			panic!("palettes.txt: each color must be 6 hex digits")
 		}
 		colors += 1;
+
+		if colors > 256 {
+			panic!("palettes.txt: too many colors")
+		}
+
 		value_count += colors;
 		i += 1; // '\n'
 		n += 1;
@@ -163,7 +166,7 @@ const VALUE_POOL_SIZE: usize = SIZES.value_count;
 
 struct StringMap {
 	key_pool: [u8; KEY_POOL_SIZE],
-	value_pool: [u32; VALUE_POOL_SIZE],
+	value_pool: [[u8; 3]; VALUE_POOL_SIZE],
 	key_off: [usize; NBINS + 1],
 	starts: [usize; NBINS + 1],
 	val_off: [usize; N + 1],
@@ -239,7 +242,7 @@ const MAP: StringMap = {
 
 	// fill pools in sorted order
 	let mut key_pool = [0u8; KEY_POOL_SIZE];
-	let mut value_pool = [0u32; VALUE_POOL_SIZE];
+	let mut value_pool = [[0u8; 3]; VALUE_POOL_SIZE];
 	let mut val_off = [0usize; N + 1];
 	let mut name_at = [(0usize, 0usize); N];
 	let mut kp = 0;
@@ -289,7 +292,7 @@ const MAP: StringMap = {
 	}
 };
 
-pub fn get(name: &str) -> Option<&'static [u32]> {
+pub fn get(name: &str) -> Option<&'static [[u8; 3]]> {
 	let key = name.as_bytes();
 	let len = key.len();
 	if len < MIN_LEN || len > MAX_LEN {
@@ -317,37 +320,59 @@ pub const NAMES: [&'static [u8]; N] = {
 	names
 };
 
+pub struct CustomPalette {
+	size: usize,
+	data: [[u8; 3]; 256],
+}
+
+impl CustomPalette {
+	fn parse<'a>(s: &'a str) -> Result<Self, PaletteError<'a>> {
+		let b = s.as_bytes();
+		let mut out = Self {
+			size: 0,
+			data: [[0; 3]; 256],
+		};
+		let mut pos = 0;
+		loop {
+			let HexResult { color, next } = parse_hex(b, pos).map_err(PaletteError::ParseError)?;
+
+			if out.size < 256 {
+				out.data[out.size] = color;
+				out.size += 1;
+			} else {
+				return Err(PaletteError::TooLarge);
+			}
+
+			if next >= b.len() {
+				return Ok(out);
+			}
+			pos = next + 1; // skip the comma
+		}
+	}
+
+	fn slice(&self) -> &[[u8; 3]] {
+		&self.data[0..self.size]
+	}
+}
+
 pub enum Palette {
-	Preset(&'static [u32]),
-	Custom(Box<[u32]>),
+	Preset(&'static [[u8; 3]]),
+	Custom(CustomPalette),
 }
 
 pub enum PaletteError<'a> {
 	NotFound(&'a str),
+	TooLarge,
 	ParseError(ColorError<'a>),
 }
 
-fn parse_palette<'a>(s: &'a str) -> Result<Box<[u32]>, ColorError<'a>> {
-	let b = s.as_bytes();
-	let mut out = Vec::new();
-	let mut pos = 0;
-	loop {
-		let HexResult { color, next } = parse_hex(b, pos)?;
-		out.push(color);
-		if next >= b.len() {
-			return Ok(out.into());
-		}
-		pos = next + 1; // skip the comma
-	}
-}
-
 impl Palette {
-	const DEFAULT: Self = Self::Preset(&[0x000000, 0xffffff]);
+	const DEFAULT: Self = Self::Preset(&[[0x0, 0x0, 0x0], [0xff, 0xff, 0xff]]);
 
-	pub fn as_slice(&self) -> &[u32] {
+	pub fn as_slice(&self) -> &[[u8; 3]] {
 		match self {
 			Palette::Preset(s) => s,
-			Palette::Custom(v) => v,
+			Palette::Custom(v) => v.slice(),
 		}
 	}
 
@@ -357,7 +382,7 @@ impl Palette {
 	) -> Result<Self, PaletteError<'a>> {
 		let palette = match (preset, custom) {
 			(Some(name), _) => Self::Preset(get(name).ok_or(PaletteError::NotFound(name))?),
-			(None, Some(s)) => Self::Custom(parse_palette(s).map_err(PaletteError::ParseError)?),
+			(None, Some(s)) => Self::Custom(CustomPalette::parse(s)?),
 			(None, None) => Self::DEFAULT,
 		};
 

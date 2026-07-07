@@ -3,7 +3,7 @@ fn main() {
 		println!("cargo:rerun-if-changed={path}");
 	}
 
-	let args = ["-O3", "-std=c99", "-Wall", "-Wextra", "-pedantic", "-s"];
+	let args = ["-O3", "-std=c99", "-Wall", "-Wextra", "-pedantic"];
 
 	let native_args = ["-march=native", "-mtune=native"];
 

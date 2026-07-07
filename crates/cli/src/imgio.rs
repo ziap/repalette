@@ -91,16 +91,11 @@ pub struct IndexedImage<'a> {
 	pub width: u32,
 	pub height: u32,
 	pub indices: Vec<u8>,
-	pub colors: &'a [u32],
+	pub colors: &'a [[u8; 3]],
 }
 
 impl<'a> IndexedImage<'a> {
 	pub fn write_png(mut self, path: &Path) -> Result<(), WriteError> {
-		let mut plte = Vec::with_capacity(self.colors.len() * 3);
-		for &c in self.colors {
-			plte.extend_from_slice(&[(c >> 16) as u8, (c >> 8) as u8, c as u8]);
-		}
-
 		let depth = if self.colors.len() <= 16 {
 			let width = self.width as usize;
 			let row_bytes = (width + 1) / 2;
@@ -127,7 +122,7 @@ impl<'a> IndexedImage<'a> {
 		let mut enc = png::Encoder::new(BufWriter::new(file), self.width, self.height);
 		enc.set_color(png::ColorType::Indexed);
 		enc.set_depth(depth);
-		enc.set_palette(plte);
+		enc.set_palette(self.colors.as_flattened());
 		enc.set_compression(png::Compression::Balanced);
 
 		let mut writer = enc.write_header().map_err(WriteError::Png)?;
