@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::io::{self, Write};
 use std::path::Path;
 use std::process;
@@ -76,14 +77,12 @@ enum PaletteArgs {
 	},
 }
 
-fn unknown_preset(name: &str) -> ! {
+fn unknown_preset<T>(name: &str) -> T {
 	eprintln!("Error: unknown palette preset '{name}' (try `repalette palette list`)");
 	process::exit(1);
 }
 
-fn invalid_palette(err: PaletteError) -> ! {
-	// Colors are raw `&[u8]`, so write them straight through instead of going
-	// via a UTF-8 string.
+fn invalid_palette<T>(err: PaletteError) -> T {
 	let mut out = io::stderr().lock();
 	match err {
 		PaletteError::NotFound(name) => unknown_preset(name),
@@ -116,6 +115,11 @@ fn invalid_palette(err: PaletteError) -> ! {
 			process::exit(1);
 		}
 	}
+}
+
+fn print_and_exit<T>(err: impl Display) -> T {
+	eprintln!("{err}");
+	process::exit(1);
 }
 
 fn run_palette(action: PaletteArgs) {
@@ -154,7 +158,7 @@ fn run_apply(args: ApplyArgs) {
 	let preset = args.palette.as_deref();
 	let custom = args.colors.as_deref();
 
-	let palette = Palette::resolve(preset, custom).unwrap_or_else(|err| invalid_palette(err));
+	let palette = Palette::resolve(preset, custom).unwrap_or_else(invalid_palette);
 
 	let colors = palette.as_slice();
 
@@ -163,10 +167,7 @@ fn run_apply(args: ApplyArgs) {
 		process::exit(1);
 	});
 
-	let mut img = Image::read(&args.input).unwrap_or_else(|err| {
-		eprintln!("{err}");
-		process::exit(1);
-	});
+	let mut img = Image::read(&args.input).unwrap_or_else(print_and_exit);
 
 	if format == image::ImageFormat::Png && colors.len() <= 256 {
 		let indices = repalette::process_index(&mut img, colors, &args.dither);
@@ -178,16 +179,14 @@ fn run_apply(args: ApplyArgs) {
 			colors,
 		};
 
-		indexed.write_png(&args.output).unwrap_or_else(|err| {
-			eprintln!("{err}");
-			process::exit(1);
-		});
+		indexed
+			.write_png(&args.output)
+			.unwrap_or_else(print_and_exit);
 	} else {
 		repalette::process(&mut img, colors, &args.dither);
 
-		img.write(&args.output, format).unwrap_or_else(|err| {
-			eprintln!("{err}");
-			process::exit(1);
-		});
+		img
+			.write(&args.output, format)
+			.unwrap_or_else(print_and_exit);
 	}
 }

@@ -350,7 +350,7 @@ impl CustomPalette {
 		}
 	}
 
-	fn slice(&self) -> &[[u8; 3]] {
+	fn as_slice(&self) -> &[[u8; 3]] {
 		&self.data[0..self.size]
 	}
 }
@@ -372,7 +372,7 @@ impl Palette {
 	pub fn as_slice(&self) -> &[[u8; 3]] {
 		match self {
 			Palette::Preset(s) => s,
-			Palette::Custom(v) => v.slice(),
+			Palette::Custom(v) => v.as_slice(),
 		}
 	}
 
