@@ -48,7 +48,7 @@ cargo build --release
 Build the WASM version
 
 ```
-cargo build --release --features wasm
+sh build.sh
 ```
 
 ## Usage

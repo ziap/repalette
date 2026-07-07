@@ -1,14 +1,9 @@
 use image::{ImageError, ImageFormat, ImageReader, RgbImage};
+use repalette_core::Image;
 use std::fmt::{self, Display, Formatter};
 use std::fs::File;
 use std::io::{self, BufWriter};
 use std::path::Path;
-
-pub struct Image {
-	pub width: u32,
-	pub height: u32,
-	pub pixels: Vec<u8>,
-}
 
 pub enum ReadError {
 	OpenError(io::Error),
@@ -48,8 +43,13 @@ impl Display for WriteError {
 	}
 }
 
-impl Image {
-	pub fn read(path: &Path) -> Result<Self, ReadError> {
+pub trait ImageIo: Sized {
+	fn read(path: &Path) -> Result<Self, ReadError>;
+	fn write(self, path: &Path, format: ImageFormat) -> Result<(), WriteError>;
+}
+
+impl ImageIo for Image {
+	fn read(path: &Path) -> Result<Self, ReadError> {
 		let img = ImageReader::open(path)
 			.map_err(ReadError::OpenError)?
 			.with_guessed_format()
@@ -65,7 +65,7 @@ impl Image {
 		})
 	}
 
-	pub fn write(self, path: &Path, format: ImageFormat) -> Result<(), WriteError> {
+	fn write(self, path: &Path, format: ImageFormat) -> Result<(), WriteError> {
 		let size = (self.width * self.height) as usize;
 
 		// Convert to RGB

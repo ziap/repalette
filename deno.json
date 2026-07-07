@@ -27,6 +27,6 @@
 		}
 	},
 	"tasks": {
-		"format": "clang-format -i repalette-sys/*.c repalette-sys/*.h && cargo fmt && deno fmt"
+		"format": "clang-format -i crates/core/src/c/*.c crates/core/src/c/*.h && cargo fmt && deno fmt"
 	}
 }

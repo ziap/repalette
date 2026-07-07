@@ -1,18 +1,7 @@
-[package]
-name = "repalette"
-version = "0.1.0"
-edition = "2024"
-
-[features]
-wasm = []
-
-[build-dependencies]
-cc = "1.2.63"
-
-[dependencies]
-clap = { version = "4.6.1", features = ["derive"] }
-image = "0.25.10"
-png = "0.18.1"
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+default-members = ["crates/cli"]
 
 [profile.release]
 strip = true

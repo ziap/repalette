@@ -871,11 +871,23 @@ dependencies = [
 name = "repalette"
 version = "0.1.0"
 dependencies = [
- "cc",
  "clap",
  "image",
  "png",
+ "repalette-core",
+ "repalette-palettes",
 ]
+
+[[package]]
+name = "repalette-core"
+version = "0.1.0"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "repalette-palettes"
+version = "0.1.0"
 
 [[package]]
 name = "rgb"

@@ -1,8 +1,19 @@
-use crate::imgio::Image;
-use std::ffi::{CStr, c_char, c_int};
+#![no_std]
+
+extern crate alloc;
+
+use alloc::boxed::Box;
+use alloc::{vec, vec::Vec};
+use core::ffi::{CStr, c_char, c_int};
+
+pub struct Image {
+	pub width: u32,
+	pub height: u32,
+	pub pixels: Vec<u8>,
+}
 
 mod c {
-	use std::ffi::{c_char, c_int};
+	use core::ffi::{c_char, c_int};
 	unsafe extern "C" {
 		pub fn repalette_process(
 			pixels: *mut u8,
