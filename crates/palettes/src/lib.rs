@@ -320,17 +320,34 @@ pub const NAMES: [&'static [u8]; N] = {
 	names
 };
 
-pub struct CustomPalette {
+pub struct Palette {
 	size: usize,
 	data: [[u8; 3]; 256],
 }
 
-impl CustomPalette {
+pub enum PaletteError<'a> {
+	NotFound(&'a str),
+	TooLarge,
+	ParseError(ColorError<'a>),
+}
+
+impl Palette {
+	const EMPTY_DATA: [[u8; 3]; 256] = [[0; 3]; 256];
+
+	fn default() -> Self {
+		let mut out = Self {
+			size: 2,
+			data: Self::EMPTY_DATA,
+		};
+		out.data[1] = [0xff, 0xff, 0xff];
+		out
+	}
+
 	fn parse<'a>(s: &'a str) -> Result<Self, PaletteError<'a>> {
 		let b = s.as_bytes();
 		let mut out = Self {
 			size: 0,
-			data: [[0; 3]; 256],
+			data: Self::EMPTY_DATA,
 		};
 		let mut pos = 0;
 		loop {
@@ -350,42 +367,26 @@ impl CustomPalette {
 		}
 	}
 
-	fn as_slice(&self) -> &[[u8; 3]] {
-		&self.data[0..self.size]
-	}
-}
-
-pub enum Palette {
-	Preset(&'static [[u8; 3]]),
-	Custom(CustomPalette),
-}
-
-pub enum PaletteError<'a> {
-	NotFound(&'a str),
-	TooLarge,
-	ParseError(ColorError<'a>),
-}
-
-impl Palette {
-	const DEFAULT: Self = Self::Preset(&[[0x0, 0x0, 0x0], [0xff, 0xff, 0xff]]);
-
-	pub fn as_slice(&self) -> &[[u8; 3]] {
-		match self {
-			Palette::Preset(s) => s,
-			Palette::Custom(v) => v.as_slice(),
-		}
+	fn lookup<'a>(name: &'a str) -> Result<Self, PaletteError<'a>> {
+		let buffer = get(name).ok_or(PaletteError::NotFound(name))?;
+		let size = buffer.len();
+		let mut data = Self::EMPTY_DATA;
+		data[..size].copy_from_slice(buffer);
+		Ok(Self { data, size })
 	}
 
 	pub fn resolve<'a>(
 		preset: Option<&'a str>,
 		custom: Option<&'a str>,
 	) -> Result<Self, PaletteError<'a>> {
-		let palette = match (preset, custom) {
-			(Some(name), _) => Self::Preset(get(name).ok_or(PaletteError::NotFound(name))?),
-			(None, Some(s)) => Self::Custom(CustomPalette::parse(s)?),
-			(None, None) => Self::DEFAULT,
-		};
+		match (preset, custom) {
+			(Some(name), _) => Self::lookup(name),
+			(None, Some(s)) => Self::parse(s),
+			(None, None) => Ok(Self::default()),
+		}
+	}
 
-		Ok(palette)
+	pub fn as_slice(&self) -> &[[u8; 3]] {
+		&self.data[0..self.size]
 	}
 }
