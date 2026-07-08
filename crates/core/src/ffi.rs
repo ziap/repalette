@@ -4,6 +4,7 @@ use core::ffi::{CStr, c_char, c_int};
 
 use crate::palette::Palette;
 
+#[derive(Clone)]
 pub struct Image {
 	pub width: u32,
 	pub height: u32,

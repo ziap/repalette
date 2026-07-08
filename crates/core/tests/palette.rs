@@ -1,15 +1,13 @@
 use repalette_core::*;
+use std::fmt::Debug;
 use std::{assert_matches, iter};
 
-fn check<E>(result: &Result<Palette, E>, colors: &[[u8; 3]]) {
-	assert!(result.as_ref().is_ok_and(|palette| {
-		if palette.as_slice() != colors {
-			return false;
-		}
+fn check<E: Debug>(result: &Result<Palette, E>, colors: &[[u8; 3]]) {
+	let palette = result.as_ref().unwrap();
+	assert_eq!(palette.as_slice(), colors);
 
-		let roundtrip = Palette::from_colors(colors);
-		roundtrip.as_slice() == colors
-	}));
+	let roundtrip = Palette::from_colors(colors);
+	assert_eq!(roundtrip.as_slice(), colors);
 }
 
 #[test]

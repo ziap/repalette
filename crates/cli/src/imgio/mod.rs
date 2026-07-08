@@ -1,28 +1,26 @@
 use image::{ImageError, ImageFormat, ImageReader, RgbImage};
 use repalette_core::Image;
 use std::fmt::{self, Display, Formatter};
-use std::fs::File;
-use std::io::{self, BufWriter};
-use std::path::Path;
+use std::io::{self, BufRead, Seek, Write};
 
+#[cfg(test)]
+mod tests;
+
+#[derive(Debug)]
 pub enum ReadError {
-	OpenError(io::Error),
 	DetectFormatError(io::Error),
 	DecodeError(ImageError),
 }
 
+#[derive(Debug)]
 pub enum WriteError {
 	Encode(ImageError),
 	Png(png::EncodingError),
-	Create(io::Error),
 }
 
 impl Display for ReadError {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::OpenError(err) => {
-				write!(f, "Failed to open image: {err}")
-			}
 			Self::DetectFormatError(err) => {
 				write!(f, "Failed to detect image format: {err}")
 			}
@@ -38,20 +36,26 @@ impl Display for WriteError {
 		match self {
 			Self::Encode(err) => write!(f, "Failed to save image: {err}"),
 			Self::Png(err) => write!(f, "Failed to save image: {err}"),
-			Self::Create(err) => write!(f, "Failed to create output file: {err}"),
 		}
 	}
 }
 
 pub trait ImageIo: Sized {
-	fn read(path: &Path) -> Result<Self, ReadError>;
-	fn write(self, path: &Path, format: ImageFormat) -> Result<(), WriteError>;
+	fn read<R>(r: &mut R) -> Result<Self, ReadError>
+	where
+		R: BufRead + Seek;
+
+	fn write<W>(self, w: &mut W, format: ImageFormat) -> Result<(), WriteError>
+	where
+		W: Write + Seek;
 }
 
 impl ImageIo for Image {
-	fn read(path: &Path) -> Result<Self, ReadError> {
-		let img = ImageReader::open(path)
-			.map_err(ReadError::OpenError)?
+	fn read<R>(r: &mut R) -> Result<Self, ReadError>
+	where
+		R: BufRead + Seek,
+	{
+		let img = ImageReader::new(r)
 			.with_guessed_format()
 			.map_err(ReadError::DetectFormatError)?
 			.decode()
@@ -65,7 +69,10 @@ impl ImageIo for Image {
 		})
 	}
 
-	fn write(self, path: &Path, format: ImageFormat) -> Result<(), WriteError> {
+	fn write<W>(self, w: &mut W, format: ImageFormat) -> Result<(), WriteError>
+	where
+		W: Write + Seek,
+	{
 		let size = (self.width * self.height) as usize;
 
 		// Convert to RGB
@@ -82,7 +89,7 @@ impl ImageIo for Image {
 
 		RgbImage::from_raw(self.width, self.height, pixels)
 			.unwrap()
-			.save_with_format(path, format)
+			.write_to(w, format)
 			.map_err(WriteError::Encode)
 	}
 }
@@ -95,7 +102,7 @@ pub struct IndexedImage<'a> {
 }
 
 impl<'a> IndexedImage<'a> {
-	pub fn write_png(mut self, path: &Path) -> Result<(), WriteError> {
+	pub fn write_png(mut self, w: &mut impl Write) -> Result<(), WriteError> {
 		use WriteError::*;
 
 		let depth = if self.colors.len() <= 16 {
@@ -120,8 +127,7 @@ impl<'a> IndexedImage<'a> {
 			png::BitDepth::Eight
 		};
 
-		let file = File::create(path).map_err(Create)?;
-		let mut enc = png::Encoder::new(BufWriter::new(file), self.width, self.height);
+		let mut enc = png::Encoder::new(w, self.width, self.height);
 		enc.set_color(png::ColorType::Indexed);
 		enc.set_depth(depth);
 		enc.set_palette(self.colors.as_flattened());

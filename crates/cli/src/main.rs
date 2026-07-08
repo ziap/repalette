@@ -1,5 +1,6 @@
 use std::fmt::Display;
-use std::io::{self, Write};
+use std::fs::File;
+use std::io::{self, BufReader, BufWriter, Write};
 use std::path::Path;
 use std::process;
 
@@ -178,7 +179,18 @@ fn run_apply(args: ApplyArgs) {
 		.map_err(|err| format!("Failed to detect output format: {err}"))
 		.unwrap_or_else(print_and_exit);
 
-	let mut img = Image::read(&args.input).unwrap_or_else(print_and_exit);
+	let in_file = File::open(&args.input)
+		.map_err(|err| format!("Failed to open the source image: {err}"))
+		.unwrap_or_else(print_and_exit);
+	let mut reader = BufReader::new(in_file);
+
+	let mut img = Image::read(&mut reader).unwrap_or_else(print_and_exit);
+
+	let out_file = File::create(args.output)
+		.map_err(|err| format!("Failed to open the target image: {err}"))
+		.unwrap_or_else(print_and_exit);
+
+	let mut writer = BufWriter::new(out_file);
 
 	if format == ImageFormat::Png {
 		let indices = repalette::process_index(&mut img, &palette, &args.dither);
@@ -191,13 +203,13 @@ fn run_apply(args: ApplyArgs) {
 		};
 
 		indexed
-			.write_png(&args.output)
+			.write_png(&mut writer)
 			.unwrap_or_else(print_and_exit);
 	} else {
 		repalette::process(&mut img, &palette, &args.dither);
 
 		img
-			.write(&args.output, format)
+			.write(&mut writer, format)
 			.unwrap_or_else(print_and_exit);
 	}
 }
