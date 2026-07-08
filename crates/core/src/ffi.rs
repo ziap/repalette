@@ -11,7 +11,8 @@ pub struct Image {
 }
 
 mod c {
-	use core::ffi::{c_char, c_int};
+	use super::*;
+
 	unsafe extern "C" {
 		pub fn repalette_process(
 			pixels: *mut u8,
