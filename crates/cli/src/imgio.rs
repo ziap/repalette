@@ -96,6 +96,8 @@ pub struct IndexedImage<'a> {
 
 impl<'a> IndexedImage<'a> {
 	pub fn write_png(mut self, path: &Path) -> Result<(), WriteError> {
+		use WriteError::*;
+
 		let depth = if self.colors.len() <= 16 {
 			let width = self.width as usize;
 			let row_bytes = (width + 1) / 2;
@@ -118,16 +120,14 @@ impl<'a> IndexedImage<'a> {
 			png::BitDepth::Eight
 		};
 
-		let file = File::create(path).map_err(WriteError::Create)?;
+		let file = File::create(path).map_err(Create)?;
 		let mut enc = png::Encoder::new(BufWriter::new(file), self.width, self.height);
 		enc.set_color(png::ColorType::Indexed);
 		enc.set_depth(depth);
 		enc.set_palette(self.colors.as_flattened());
 		enc.set_compression(png::Compression::Balanced);
 
-		let mut writer = enc.write_header().map_err(WriteError::Png)?;
-		writer
-			.write_image_data(&self.indices)
-			.map_err(WriteError::Png)
+		let mut writer = enc.write_header().map_err(Png)?;
+		writer.write_image_data(&self.indices).map_err(Png)
 	}
 }

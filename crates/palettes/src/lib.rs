@@ -1,62 +1,11 @@
 #![no_std]
 
-const RAW: &[u8] = include_bytes!("data/palettes.txt");
+use repalette_core::{HexError, HexResult, Palette, ParseError, parse_hex};
 
-pub enum ColorError<'a> {
-	BadChar { color: &'a [u8], pos: usize },
-	WrongDigits(&'a [u8]),
-}
+const RAW: &[u8] = include_bytes!("data/palettes.txt");
 
 const fn subbytes(bytes: &[u8], start: usize, end: usize) -> &[u8] {
 	bytes.split_at(end).0.split_at(start).1
-}
-
-struct HexResult {
-	color: [u8; 3],
-	next: usize,
-}
-
-const fn parse_hex<'a>(b: &'a [u8], pos: usize) -> Result<HexResult, ColorError<'a>> {
-	let mut next = pos;
-	let mut color = 0u32;
-	let mut digits = 0u32;
-	while next < b.len() && b[next] != b',' {
-		let c = b[next];
-		let d = match c {
-			b'0'..=b'9' => c - b'0',
-			b'a'..=b'f' => c - b'a' + 10,
-			b'A'..=b'F' => c - b'A' + 10,
-			_ => {
-				let mut end = next;
-				while end < b.len() && b[end] != b',' {
-					end += 1;
-				}
-				return Err(ColorError::BadChar {
-					color: subbytes(b, pos, end),
-					pos: next - pos,
-				});
-			}
-		} as u32;
-		digits += 1;
-		if digits > 6 {
-			let mut end = next;
-			while end < b.len() && b[end] != b',' {
-				end += 1;
-			}
-			return Err(ColorError::WrongDigits(subbytes(b, pos, end)));
-		}
-		color = (color << 4) | d;
-		next += 1;
-	}
-
-	if digits != 6 {
-		Err(ColorError::WrongDigits(subbytes(b, pos, next)))
-	} else {
-		Ok(HexResult {
-			color: [(color >> 16) as u8, (color >> 8) as u8, color as u8],
-			next,
-		})
-	}
 }
 
 struct Sizes {
@@ -270,10 +219,10 @@ const MAP: StringMap = {
 					vp += 1;
 					p = if next < colors.len() { next + 1 } else { next };
 				}
-				Err(ColorError::BadChar { .. }) => {
+				Err(HexError::BadChar { .. }) => {
 					panic!("palettes.txt: colors must be hex digits")
 				}
-				Err(ColorError::WrongDigits(_)) => {
+				Err(HexError::WrongDigits(_)) => {
 					panic!("palettes.txt: each color must be 6 hex digits")
 				}
 			}
@@ -320,73 +269,23 @@ pub const NAMES: [&'static [u8]; N] = {
 	names
 };
 
-pub struct Palette {
-	size: usize,
-	data: [[u8; 3]; 256],
-}
-
-pub enum PaletteError<'a> {
+pub enum ResolveError<'a> {
 	NotFound(&'a str),
-	TooLarge,
-	ParseError(ColorError<'a>),
+	ParseFailed(ParseError<'a>),
 }
 
-impl Palette {
-	const EMPTY_DATA: [[u8; 3]; 256] = [[0; 3]; 256];
+pub fn resolve<'a>(
+	preset: Option<&'a str>,
+	custom: Option<&'a str>,
+) -> Result<Palette, ResolveError<'a>> {
+	use ResolveError::*;
 
-	fn default() -> Self {
-		let mut out = Self {
-			size: 2,
-			data: Self::EMPTY_DATA,
-		};
-		out.data[1] = [0xff, 0xff, 0xff];
-		out
-	}
-
-	fn parse<'a>(s: &'a str) -> Result<Self, PaletteError<'a>> {
-		let b = s.as_bytes();
-		let mut out = Self {
-			size: 0,
-			data: Self::EMPTY_DATA,
-		};
-		let mut pos = 0;
-		loop {
-			let HexResult { color, next } = parse_hex(b, pos).map_err(PaletteError::ParseError)?;
-
-			if out.size < 256 {
-				out.data[out.size] = color;
-				out.size += 1;
-			} else {
-				return Err(PaletteError::TooLarge);
-			}
-
-			if next >= b.len() {
-				return Ok(out);
-			}
-			pos = next + 1; // skip the comma
+	match (preset, custom) {
+		(Some(name), _) => {
+			let colors = get(name).ok_or(NotFound(name))?;
+			Ok(Palette::from_colors(colors))
 		}
-	}
-
-	fn lookup<'a>(name: &'a str) -> Result<Self, PaletteError<'a>> {
-		let buffer = get(name).ok_or(PaletteError::NotFound(name))?;
-		let size = buffer.len();
-		let mut data = Self::EMPTY_DATA;
-		data[..size].copy_from_slice(buffer);
-		Ok(Self { data, size })
-	}
-
-	pub fn resolve<'a>(
-		preset: Option<&'a str>,
-		custom: Option<&'a str>,
-	) -> Result<Self, PaletteError<'a>> {
-		match (preset, custom) {
-			(Some(name), _) => Self::lookup(name),
-			(None, Some(s)) => Self::parse(s),
-			(None, None) => Ok(Self::default()),
-		}
-	}
-
-	pub fn as_slice(&self) -> &[[u8; 3]] {
-		&self.data[0..self.size]
+		(None, Some(s)) => Palette::parse(s).map_err(ParseFailed),
+		(None, None) => Ok(Palette::default()),
 	}
 }

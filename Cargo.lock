@@ -888,6 +888,9 @@ dependencies = [
 [[package]]
 name = "repalette-palettes"
 version = "0.1.0"
+dependencies = [
+ "repalette-core",
+]
 
 [[package]]
 name = "rgb"
