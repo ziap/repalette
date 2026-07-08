@@ -1,8 +1,10 @@
+#[derive(Debug)]
 pub enum HexError<'a> {
 	BadChar { color: &'a [u8], pos: usize },
 	WrongDigits(&'a [u8]),
 }
 
+#[derive(Debug)]
 pub enum ParseError<'a> {
 	Hex(HexError<'a>),
 	TooLarge,
@@ -62,6 +64,7 @@ pub const fn parse_hex<'a>(b: &'a [u8], pos: usize, term: u8) -> Result<HexResul
 	}
 }
 
+#[derive(Debug)]
 pub struct Palette {
 	size: usize,
 	data: [[u8; 3]; 256],
