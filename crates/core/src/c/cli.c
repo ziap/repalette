@@ -1,3 +1,4 @@
+#include "extract.h"
 #include "repalette.h"
 
 int ditherer_count(void) { return DITHER_COUNT; }
@@ -40,7 +41,7 @@ void repalette_process(
 	int buffer[3 * 256];
 	Palette pal = build_palette(colors, count, buffer);
 
-	Image img = {pixels, width, height};
+	Image img = {.pixels = pixels, .width = width, .height = height};
 	recolor(img, pal, (Ditherer)ditherer);
 }
 
@@ -51,6 +52,31 @@ void repalette_process_index(
 	int buffer[3 * 256];
 	Palette pal = build_palette(colors, count, buffer);
 
-	Image img = {pixels, width, height};
+	Image img = {.pixels = pixels, .width = width, .height = height};
 	recolor_index(img, pal, (Ditherer)ditherer, out);
+}
+
+int repalette_extract(
+	u8* pixels, int width, int height, int k, int threshold, float* soa,
+	uint32_t* bins, u8* pixbuf, u8* out
+) {
+	size_t P = (size_t)width * height;
+
+	HistogramScratch hist = {
+		.threshold = threshold,
+		.bins0 = bins,
+		.bins1 = bins + (threshold + 1),
+		.work = pixbuf,
+		.aux = pixbuf + P * CHANNELS,
+	};
+
+	OklabHist reps = {
+		.l = soa,
+		.a = soa + threshold,
+		.b = soa + 2 * threshold,
+		.w = soa + 3 * threshold,
+	};
+
+	Image img = {.pixels = pixels, .width = width, .height = height};
+	return extract_palette(img, k, hist, reps, out);
 }

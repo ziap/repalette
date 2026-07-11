@@ -37,6 +37,18 @@ mod c {
 		pub fn ditherer_count() -> c_int;
 		pub fn ditherer_name(index: c_int) -> *const c_char;
 		pub fn ditherer_display(index: c_int) -> *const c_char;
+
+		pub fn repalette_extract(
+			pixels: *mut u8,
+			width: c_int,
+			height: c_int,
+			k: c_int,
+			threshold: c_int,
+			soa: *mut f32,
+			bins: *mut u32,
+			pixbuf: *mut u8,
+			out: *mut u8,
+		) -> c_int;
 	}
 }
 
@@ -101,6 +113,32 @@ pub fn process_index(img: &mut Image, palette: &Palette, ditherer: &str) -> Vec<
 	out
 }
 
+const EXTRACT_THRESHOLD: usize = 1 << 19; // 524288, multiple of 4
+
 pub fn extract_palette(img: &mut Image, count: u16) -> Palette {
-	unimplemented!("C palette extraction engine");
+	let k = count.clamp(1, 256) as usize;
+	let p = (img.width * img.height) as usize;
+	let thr = EXTRACT_THRESHOLD;
+
+	let mut soa = Box::<[f32]>::new_uninit_slice(thr * 4);
+	let mut bins = Box::<[u32]>::new_uninit_slice((thr + 1) * 2);
+	let mut pix = Box::<[u8]>::new_uninit_slice(p * 4 * 2);
+
+	let mut out = [[0u8; 3]; 256];
+
+	let n = unsafe {
+		c::repalette_extract(
+			img.pixels.as_mut_ptr(),
+			img.width as c_int,
+			img.height as c_int,
+			k as c_int,
+			thr as c_int,
+			soa.as_mut_ptr() as *mut f32,
+			bins.as_mut_ptr() as *mut u32,
+			pix.as_mut_ptr() as *mut u8,
+			out[..k].as_flattened_mut().as_mut_ptr(),
+		)
+	} as usize;
+
+	Palette::from_colors(&out[..n])
 }

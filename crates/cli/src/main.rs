@@ -167,6 +167,13 @@ fn print_colors(out: &mut impl Write, colors: &[[u8; 3]]) {
 	_ = out.write_all(b"\n");
 }
 
+fn read_image(path: &Path) -> Image {
+	let file = File::open(path)
+		.map_err(|err| format!("Failed to open the source image: {err}"))
+		.unwrap_or_else(print_and_exit);
+	Image::read(&mut BufReader::new(file)).unwrap_or_else(print_and_exit)
+}
+
 fn run_palette(action: PaletteArgs) {
 	let mut out = std::io::stdout().lock();
 	match action {
@@ -181,7 +188,7 @@ fn run_palette(action: PaletteArgs) {
 			None => unknown_preset(&name),
 		},
 		PaletteArgs::Extract { image, extract } => {
-			let mut img = Image::read(&image).unwrap_or_else(print_and_exit);
+			let mut img = read_image(&image);
 			let palette = repalette::extract_palette(&mut img, extract);
 			print_colors(&mut out, palette.as_slice());
 		}
@@ -198,7 +205,7 @@ fn main() {
 fn resolve_palette(args: &ApplyArgs, input: &mut Image) -> Palette {
 	if let Some(path) = &args.palette_from {
 		let count = args.extract.unwrap_or(DEFAULT_EXTRACT);
-		let mut source = Image::read(path).unwrap_or_else(print_and_exit);
+		let mut source = read_image(path);
 		repalette::extract_palette(&mut source, count)
 	} else if let Some(count) = args.extract {
 		repalette::extract_palette(input, count)
@@ -224,7 +231,7 @@ fn run_apply(args: ApplyArgs) {
 
 	let mut img = Image::read(&mut reader).unwrap_or_else(print_and_exit);
 
-	let out_file = File::create(args.output)
+	let out_file = File::create(&args.output)
 		.map_err(|err| format!("Failed to open the target image: {err}"))
 		.unwrap_or_else(print_and_exit);
 
