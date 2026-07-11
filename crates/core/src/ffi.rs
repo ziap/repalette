@@ -100,3 +100,7 @@ pub fn process_index(img: &mut Image, palette: &Palette, ditherer: &str) -> Vec<
 
 	out
 }
+
+pub fn extract_palette(img: &mut Image, count: usize) -> Palette {
+	unimplemented!("C palette extraction engine");
+}

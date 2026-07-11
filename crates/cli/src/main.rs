@@ -9,8 +9,8 @@ use clap::{Parser, Subcommand};
 use image::ImageFormat;
 
 use crate::imgio::{ImageIo, IndexedImage};
-use repalette_core::{self as repalette, Ditherer, HexError, Image, ParseError};
-use repalette_palettes::{self as palettes, ResolveError};
+use repalette_core::{self as repalette, Ditherer, HexError, Image, Palette, ParseError};
+use repalette_palettes::{self as palettes};
 
 mod imgio;
 
@@ -51,12 +51,24 @@ struct ApplyArgs {
 	output: Box<Path>,
 
 	/// Built-in palette (see `repalette palette list`)
-	#[arg(short, long)]
+	#[arg(short, long, group = "source")]
 	palette: Option<Box<str>>,
 
 	/// Manual palette, e.g. 000000,ffffff
-	#[arg(short = 'c', long, conflicts_with = "palette")]
+	#[arg(short = 'c', long, group = "source")]
 	colors: Option<Box<str>>,
+
+	/// Extract the palette from a reference image
+	#[arg(long, group = "source", value_name = "IMAGE")]
+	palette_from: Option<Box<Path>>,
+
+	/// Extract the palette from the input image
+	#[arg(short = 'e', long, group = "source")]
+	extract: bool,
+
+	/// Number of colors to extract (with --extract or --palette-from)
+	#[arg(short = 'n', long, default_value_t = 16)]
+	count: usize,
 
 	/// Dithering algorithm
 	#[arg(
@@ -121,15 +133,6 @@ fn parse_failed(err: ParseError) -> ! {
 	}
 }
 
-fn invalid_palette<T>(err: ResolveError) -> T {
-	use ResolveError::*;
-
-	match err {
-		NotFound(name) => unknown_preset(name),
-		ParseFailed(err) => parse_failed(err),
-	}
-}
-
 fn print_and_exit<T>(err: impl Display) -> T {
 	eprintln!("{err}");
 	process::exit(1);
@@ -167,14 +170,23 @@ fn main() {
 	}
 }
 
+fn resolve_palette(args: &ApplyArgs, input: &mut Image) -> Palette {
+	if args.extract {
+		repalette::extract_palette(input, args.count)
+	} else if let Some(path) = &args.palette_from {
+		let mut source = Image::read(path).unwrap_or_else(print_and_exit);
+		repalette::extract_palette(&mut source, args.count)
+	} else if let Some(name) = args.palette.as_deref() {
+		let colors = palettes::get(name).unwrap_or_else(|| unknown_preset(name));
+		Palette::from_colors(colors)
+	} else if let Some(custom) = args.colors.as_deref() {
+		Palette::parse(custom).unwrap_or_else(|err| parse_failed(err))
+	} else {
+		Palette::default()
+	}
+}
+
 fn run_apply(args: ApplyArgs) {
-	let preset = args.palette.as_deref();
-	let custom = args.colors.as_deref();
-
-	let palette = palettes::resolve(preset, custom).unwrap_or_else(invalid_palette);
-
-	let colors = palette.as_slice();
-
 	let format = ImageFormat::from_path(&args.output)
 		.map_err(|err| format!("Failed to detect output format: {err}"))
 		.unwrap_or_else(print_and_exit);
@@ -191,6 +203,9 @@ fn run_apply(args: ApplyArgs) {
 		.unwrap_or_else(print_and_exit);
 
 	let mut writer = BufWriter::new(out_file);
+
+	let palette = resolve_palette(&args, &mut img);
+	let colors = palette.as_slice();
 
 	if format == ImageFormat::Png {
 		let indices = repalette::process_index(&mut img, &palette, &args.dither);

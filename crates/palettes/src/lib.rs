@@ -1,6 +1,6 @@
 #![no_std]
 
-use repalette_core::{HexError, HexResult, Palette, ParseError, parse_hex};
+use repalette_core::{HexError, HexResult, parse_hex};
 
 const RAW: &[u8] = include_bytes!("data/palettes.txt");
 
@@ -294,24 +294,3 @@ pub const NAMES: [&'static [u8]; N] = {
 	}
 	names
 };
-
-pub enum ResolveError<'a> {
-	NotFound(&'a str),
-	ParseFailed(ParseError<'a>),
-}
-
-pub fn resolve<'a>(
-	preset: Option<&'a str>,
-	custom: Option<&'a str>,
-) -> Result<Palette, ResolveError<'a>> {
-	use ResolveError::*;
-
-	match (preset, custom) {
-		(Some(name), _) => {
-			let colors = get(name).ok_or(NotFound(name))?;
-			Ok(Palette::from_colors(colors))
-		}
-		(None, Some(s)) => Palette::parse(s).map_err(ParseFailed),
-		(None, None) => Ok(Palette::default()),
-	}
-}
