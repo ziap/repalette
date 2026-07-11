@@ -14,6 +14,8 @@ use repalette_palettes::{self as palettes};
 
 mod imgio;
 
+const DEFAULT_EXTRACT: u16 = 16;
+
 fn dither_values() -> PossibleValuesParser {
 	let ditherers = repalette::get_ditherers();
 
@@ -58,17 +60,19 @@ struct ApplyArgs {
 	#[arg(short = 'c', long, group = "source")]
 	colors: Option<Box<str>>,
 
-	/// Extract the palette from a reference image
-	#[arg(long, group = "source", value_name = "IMAGE")]
+	/// Extract an optimal N-color palette from the image (1-256)
+	#[arg(
+		short = 'k',
+		long,
+		value_name = "N",
+		conflicts_with = "source",
+		value_parser = clap::value_parser!(u16).range(1..=256),
+	)]
+	extract: Option<u16>,
+
+	/// Extract the palette from a reference image instead of the input
+	#[arg(long, value_name = "PATH", conflicts_with = "source")]
 	palette_from: Option<Box<Path>>,
-
-	/// Extract the palette from the input image
-	#[arg(short = 'e', long, group = "source")]
-	extract: bool,
-
-	/// Number of colors to extract (with --extract or --palette-from)
-	#[arg(short = 'n', long, default_value_t = 16)]
-	count: usize,
 
 	/// Dithering algorithm
 	#[arg(
@@ -88,6 +92,20 @@ enum PaletteArgs {
 	Show {
 		/// Palette name
 		name: Box<str>,
+	},
+	/// Extract a palette from an image
+	Extract {
+		/// Path to the image
+		image: Box<Path>,
+		/// Number of colors to extract (1-256)
+		#[arg(
+			short = 'k',
+			long,
+			value_name = "N",
+			default_value_t = DEFAULT_EXTRACT,
+			value_parser = clap::value_parser!(u16).range(1..=256),
+		)]
+		extract: u16,
 	},
 }
 
@@ -138,6 +156,17 @@ fn print_and_exit<T>(err: impl Display) -> T {
 	process::exit(1);
 }
 
+fn print_colors(out: &mut impl Write, colors: &[[u8; 3]]) {
+	for (i, color) in colors.iter().enumerate() {
+		if i > 0 {
+			_ = out.write_all(b",");
+		}
+		let [r, g, b] = color;
+		_ = write!(out, "{r:02x}{g:02x}{b:02x}");
+	}
+	_ = out.write_all(b"\n");
+}
+
 fn run_palette(action: PaletteArgs) {
 	let mut out = std::io::stdout().lock();
 	match action {
@@ -148,18 +177,14 @@ fn run_palette(action: PaletteArgs) {
 			}
 		}
 		PaletteArgs::Show { name } => match palettes::get(&name) {
-			Some(colors) => {
-				for (i, color) in colors.iter().enumerate() {
-					if i > 0 {
-						_ = out.write_all(b",");
-					}
-					let [r, g, b] = color;
-					_ = write!(out, "{r:02x}{g:02x}{b:02x}");
-				}
-				_ = out.write_all(b"\n");
-			}
+			Some(colors) => print_colors(&mut out, colors),
 			None => unknown_preset(&name),
 		},
+		PaletteArgs::Extract { image, extract } => {
+			let mut img = Image::read(&image).unwrap_or_else(print_and_exit);
+			let palette = repalette::extract_palette(&mut img, extract);
+			print_colors(&mut out, palette.as_slice());
+		}
 	};
 }
 
@@ -171,11 +196,12 @@ fn main() {
 }
 
 fn resolve_palette(args: &ApplyArgs, input: &mut Image) -> Palette {
-	if args.extract {
-		repalette::extract_palette(input, args.count)
-	} else if let Some(path) = &args.palette_from {
+	if let Some(path) = &args.palette_from {
+		let count = args.extract.unwrap_or(DEFAULT_EXTRACT);
 		let mut source = Image::read(path).unwrap_or_else(print_and_exit);
-		repalette::extract_palette(&mut source, args.count)
+		repalette::extract_palette(&mut source, count)
+	} else if let Some(count) = args.extract {
+		repalette::extract_palette(input, count)
 	} else if let Some(name) = args.palette.as_deref() {
 		let colors = palettes::get(name).unwrap_or_else(|| unknown_preset(name));
 		Palette::from_colors(colors)
