@@ -17,13 +17,13 @@ pub struct HexResult {
 	pub next: usize,
 }
 
-pub const fn parse_hex<'a>(b: &'a [u8], pos: usize) -> Result<HexResult, HexError<'a>> {
+pub const fn parse_hex<'a>(b: &'a [u8], pos: usize, term: u8) -> Result<HexResult, HexError<'a>> {
 	use HexError::*;
 
 	let mut next = pos;
 	let mut color = 0u32;
 	let mut digits = 0u32;
-	while next < b.len() && b[next] != b',' {
+	while next < b.len() && b[next] != term {
 		let c = b[next];
 		let d = match c {
 			b'0'..=b'9' => c - b'0',
@@ -31,7 +31,7 @@ pub const fn parse_hex<'a>(b: &'a [u8], pos: usize) -> Result<HexResult, HexErro
 			b'A'..=b'F' => c - b'A' + 10,
 			_ => {
 				let mut end = next;
-				while end < b.len() && b[end] != b',' {
+				while end < b.len() && b[end] != term {
 					end += 1;
 				}
 				return Err(BadChar {
@@ -89,7 +89,7 @@ impl Palette {
 		};
 		let mut pos = 0;
 		loop {
-			let HexResult { color, next } = parse_hex(b, pos).map_err(Hex)?;
+			let HexResult { color, next } = parse_hex(b, pos, b',').map_err(Hex)?;
 
 			if out.size < 256 {
 				out.data[out.size] = color;

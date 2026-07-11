@@ -65,28 +65,45 @@ const SIZES: Sizes = {
 			i += 1;
 		}
 
-		// colors: count digits per color, require 6; count the colors
-		let mut digits = 0;
+		// values: space-separated `key=RRGGBB` pairs. Validate the key then drop it.
 		let mut colors = 0;
 		while i < len && b[i] != b'\n' {
-			if b[i] == b',' {
-				if digits != 6 {
-					panic!("palettes.txt: each color must be 6 hex digits")
+			// key: non-empty, lowercase alphanumeric or '-', up to '=' (no space before)
+			let key_start = i;
+			while i < len && b[i] != b'=' && b[i] != b' ' && b[i] != b'\n' {
+				let c = b[i];
+				if !((c >= b'a' && c <= b'z') || (c >= b'0' && c <= b'9') || c == b'-') {
+					panic!("palettes.txt: key must be lowercase alphanumeric or '-'")
 				}
-				colors += 1;
-				digits = 0;
-			} else {
+				i += 1;
+			}
+			if i == key_start {
+				panic!("palettes.txt: empty key")
+			}
+			if i >= len || b[i] != b'=' {
+				panic!("palettes.txt: expected '=' immediately after key (no space around '=')")
+			}
+			i += 1; // '='
+
+			// value: exactly 6 digits, no space after '='
+			let mut digits = 0;
+			while i < len && b[i] != b' ' && b[i] != b'\n' {
 				digits += 1;
 				if digits > 6 {
 					panic!("palettes.txt: each color must be 6 hex digits")
 				}
+				i += 1;
 			}
-			i += 1;
+			if digits != 6 {
+				panic!("palettes.txt: each color must be 6 hex digits")
+			}
+			colors += 1;
+
+			// one or more spaces between pairs
+			while i < len && b[i] == b' ' {
+				i += 1;
+			}
 		}
-		if digits != 6 {
-			panic!("palettes.txt: each color must be 6 hex digits")
-		}
-		colors += 1;
 
 		if colors > 256 {
 			panic!("palettes.txt: too many colors")
@@ -213,11 +230,16 @@ const MAP: StringMap = {
 		let colors = subbytes(RAW, col_off[ent], col_end[ent]);
 		let mut p = 0;
 		while p < colors.len() {
-			match parse_hex(colors, p) {
+			// skip the key and '=' — keep only the value
+			while p < colors.len() && colors[p] != b'=' {
+				p += 1;
+			}
+			p += 1; // '='
+			match parse_hex(colors, p, b' ') {
 				Ok(HexResult { color, next }) => {
 					value_pool[vp] = color;
 					vp += 1;
-					p = if next < colors.len() { next + 1 } else { next };
+					p = next;
 				}
 				Err(HexError::BadChar { .. }) => {
 					panic!("palettes.txt: colors must be hex digits")
@@ -225,6 +247,10 @@ const MAP: StringMap = {
 				Err(HexError::WrongDigits(_)) => {
 					panic!("palettes.txt: each color must be 6 hex digits")
 				}
+			}
+			// skip the space separators
+			while p < colors.len() && colors[p] == b' ' {
+				p += 1;
 			}
 		}
 		s += 1;
