@@ -132,6 +132,7 @@ impl<'a> IndexedImage<'a> {
 		enc.set_depth(depth);
 		enc.set_palette(self.colors.as_flattened());
 		enc.set_compression(png::Compression::Balanced);
+		enc.set_filter(png::Filter::NoFilter);
 
 		let mut writer = enc.write_header().map_err(Png)?;
 		writer.write_image_data(&self.indices).map_err(Png)
