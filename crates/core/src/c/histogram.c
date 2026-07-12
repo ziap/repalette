@@ -1,4 +1,7 @@
 #include "histogram.h"
+
+#include <stdint.h>
+
 #include "oklab.h"
 
 static inline size_t digit(const u8 *px, int shift) {
@@ -28,69 +31,66 @@ void build_hist(Image img, HistogramScratch scratch, Histogram *out) {
 	size_t P = (size_t)img.width * img.height;
 
 	__builtin_memcpy(scratch.work, img.pixels, P * CHANNELS);
-	u8 *cur = scratch.work, *other = scratch.aux;
-	uint32_t *bcur = scratch.bins0, *bother = scratch.bins1;
+	u8 *curr = scratch.work, *next = scratch.aux;
+	size_t *bcurr = scratch.bins0;
+	size_t *bnext = scratch.bins1;
 
-	bcur[0] = 0;
-	bcur[1] = (uint32_t)P;
+	bcurr[0] = 0;
+	bcurr[1] = P;
 	size_t nb = 1;
 
 	for (int level = 1; level <= 8; ++level) {
 		int shift = 8 - level;
 
-		size_t nonempty = 0;
-		for (size_t j = 0; j < nb; ++j) {
-			int h[8] = {0};
-			for (size_t p = bcur[j]; p < bcur[j + 1]; ++p)
-				h[digit(cur + p * CHANNELS, shift)]++;
-			for (int d = 0; d < 8; ++d)
-				if (h[d]) nonempty++;
-		}
-		if (nonempty > (size_t)scratch.threshold) break;
-
 		size_t new_nb = 0;
 		for (size_t j = 0; j < nb; ++j) {
-			size_t start = bcur[j], end = bcur[j + 1];
-			int h[8] = {0};
-			for (size_t p = start; p < end; ++p)
-				h[digit(cur + p * CHANNELS, shift)]++;
+			size_t start = bcurr[j], end = bcurr[j + 1];
+			size_t count[8] = {0};
+			for (size_t p = start; p < end; ++p) {
+				count[digit(curr + p * CHANNELS, shift)]++;
+			}
 
-			uint32_t off[8];
-			uint32_t acc = (uint32_t)start;
+			size_t off[8];
+			size_t acc = start;
 			for (int d = 0; d < 8; ++d) {
 				off[d] = acc;
-				acc += (uint32_t)h[d];
+				acc += count[d];
 			}
-			for (int d = 0; d < 8; ++d)
-				if (h[d]) bother[new_nb++] = off[d];
+			for (int d = 0; d < 8; ++d) {
+				if (count[d] > 0) {
+					if (new_nb >= scratch.threshold) goto done;
+					bnext[new_nb++] = off[d];
+				}
+			}
 
-			uint32_t cur_off[8];
+			size_t cur_off[8];
 			for (int d = 0; d < 8; ++d) cur_off[d] = off[d];
 			for (size_t p = start; p < end; ++p) {
-				int d = digit(cur + p * CHANNELS, shift);
+				size_t d = digit(curr + p * CHANNELS, shift);
 				__builtin_memcpy(
-					other + (size_t)cur_off[d] * CHANNELS, cur + p * CHANNELS, CHANNELS
+					next + cur_off[d] * CHANNELS, curr + p * CHANNELS, CHANNELS
 				);
 				cur_off[d]++;
 			}
 		}
-		bother[new_nb] = (uint32_t)P;
+		bnext[new_nb] = P;
 		nb = new_nb;
 
-		u8 *tp = cur;
-		cur = other;
-		other = tp;
-		uint32_t *tb = bcur;
-		bcur = bother;
-		bother = tb;
+		u8 *tp = curr;
+		curr = next;
+		next = tp;
+		size_t *tb = bcurr;
+		bcurr = bnext;
+		bnext = tb;
 	}
+done:
 
 	for (size_t j = 0; j < nb; ++j) {
-		Oklab lab = collect_bin(cur, bcur[j], bcur[j + 1]);
+		Oklab lab = collect_bin(curr, bcurr[j], bcurr[j + 1]);
 		out->l[j] = lab.l;
 		out->a[j] = lab.a;
 		out->b[j] = lab.b;
-		out->w[j] = (float)(bcur[j + 1] - bcur[j]);
+		out->w[j] = (float)(bcurr[j + 1] - bcurr[j]);
 	}
 	out->len = nb;
 }

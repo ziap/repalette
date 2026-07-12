@@ -13,7 +13,6 @@ typedef uint32_t Hex;
 typedef int32_t i32x4 __attribute__((vector_size(16)));
 typedef uint8_t u8x4 __attribute__((vector_size(4)));
 
-
 // Images are fixed to 4 channels (RGBA) so each pixel is one 32-bit unit.
 #define CHANNELS 4
 

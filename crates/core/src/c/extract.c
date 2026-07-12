@@ -1,5 +1,6 @@
-#include "oklab.h"
 #include "extract.h"
+
+#include "oklab.h"
 
 typedef struct {
 	size_t offset, length;
@@ -144,7 +145,6 @@ size_t extract_palette(
 	ranges[0] = (Range){.offset = 0, .length = nbins};
 	eigen_store(&arr, 0, pca(reps, ranges[0]));
 	size_t count = 1;
-	float eps = arr.val[0] * 1e-6f;	 // relative to the root spread
 
 	while (count < k) {
 		int bi = 0;
@@ -154,7 +154,11 @@ size_t extract_palette(
 				bv = arr.val[i];
 				bi = i;
 			}
-		if (!(arr.val[bi] > eps)) break;	// nothing worth splitting
+		// Stop only when nothing has spread left to split: single-color and
+		// degenerate clusters get priority 0 from `pca`, and clusters that
+		// can't be partitioned are zeroed by the guard below. This fills `k`
+		// whenever distinguishable colors remain.
+		if (bv <= 0.0f) break;
 
 		size_t o = ranges[bi].offset;
 		size_t ln = ranges[bi].length;
