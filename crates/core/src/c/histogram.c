@@ -1,17 +1,16 @@
 #include "histogram.h"
 
-#include <stdint.h>
-
 #include "oklab.h"
 
 static inline size_t digit(const u8 *px, int shift) {
-	return (((px[0] >> shift) & 1) << 2) | (((px[1] >> shift) & 1) << 1) |
-				 ((px[2] >> shift) & 1);
+	size_t r = (px[0] >> shift) & 1;
+	size_t g = (px[1] >> shift) & 1;
+	size_t b = (px[2] >> shift) & 1;
+	return (r << 2) | (g << 1) | b;
 }
 
 static Oklab collect_bin(const u8 *buf, size_t start, size_t end) {
 	size_t count = end - start;
-	if (count == 0) return rgb_to_oklab((Frgb){.r = 0.0f, .g = 0.0f, .b = 0.0f});
 
 	uint64_t sr = 0, sg = 0, sb = 0;
 	for (size_t p = start; p < end; ++p) {
