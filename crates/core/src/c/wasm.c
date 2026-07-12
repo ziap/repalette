@@ -1,4 +1,4 @@
-#include "repalette.h"
+#include "dither.h"
 
 #define export extern __attribute__((visibility("default")))
 #define PAGE 65536

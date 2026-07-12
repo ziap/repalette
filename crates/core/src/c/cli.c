@@ -1,7 +1,7 @@
 #include <stddef.h>
 
 #include "extract.h"
-#include "repalette.h"
+#include "dither.h"
 
 size_t ditherer_count(void) { return DITHER_COUNT; }
 
@@ -72,7 +72,7 @@ size_t repalette_extract(
 		.aux = pixbuf + P * CHANNELS,
 	};
 
-	OklabHist reps = {
+	Histogram reps = {
 		.l = soa,
 		.a = soa + threshold,
 		.b = soa + 2 * threshold,
