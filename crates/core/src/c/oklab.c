@@ -2,16 +2,39 @@
 
 #include <math.h>
 
-// OKLab transform (Ottosson). Forward for bin centers, inverse for centroids.
-// Only used on the <= THRESHOLD bin reps / K centroids, never per pixel, so the
-// cbrt/pow cost is negligible.
-
-static inline float srgb_to_linear(float c) {
-	return c <= 0.04045f ? c / 12.92f : powf((c + 0.055f) / 1.055f, 2.4f);
+// srgb_to_linear ~ u * P(u): 10-term relative-weighted least squares.
+static inline float srgb_to_linear(float fc) {
+	double u = (double)fc;
+	double y = 128.61672087344032918;
+	y = y * u + -545.34832072837166906;
+	y = y * u + 944.69545728598676127;
+	y = y * u + -852.50914707482228713;
+	y = y * u + 417.41972351889039631;
+	y = y * u + -98.3093401783714414;
+	y = y * u + 2.2075970818635943405;
+	y = y * u + 4.3273438954548665174;
+	y = y * u + -0.17638894470563296052;
+	y = y * u + 0.078165359869162395503;
+	return (float)(y * u);
 }
 
-static inline float linear_to_srgb(float c) {
-	return c <= 0.0031308f ? 12.92f * c : 1.055f * powf(c, 1.0f / 2.4f) - 0.055f;
+// linear_to_srgb ~ P(u)/Q(u): 5/5 relative-weighted rational.
+static inline float linear_to_srgb(float fc) {
+	double u = (double)fc;
+	if (u < 0.0) u = 0.0;
+	double p = 11633054.7415025129;
+	p = p * u + 10242648.53377083;
+	p = p * u + 619916.214446767282;
+	p = p * u + -1954.9656243729929;
+	p = p * u + 12.9431969726238067;
+	p = p * u;
+	double q = 4344011.89010249388;
+	q = q * u + 15032507.989132951;
+	q = q * u + 3082009.22765459175;
+	q = q * u + 37563.7562430801085;
+	q = q * u + -140.03666135446511;
+	q = q * u + 1.0;
+	return (float)(p / q);
 }
 
 static inline uint8_t quant(float linear) {
