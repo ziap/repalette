@@ -1,7 +1,7 @@
 #include "histogram.h"
 #include "oklab.h"
 
-static inline int digit(const u8 *px, int shift) {
+static inline size_t digit(const u8 *px, int shift) {
 	return (((px[0] >> shift) & 1) << 2) | (((px[1] >> shift) & 1) << 1) |
 				 ((px[2] >> shift) & 1);
 }

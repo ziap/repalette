@@ -128,7 +128,7 @@ static inline void eigen_store(EigenArray *arr, size_t i, Eigen e) {
 	arr->vec[i] = e.evec;
 }
 
-int extract_palette(
+size_t extract_palette(
 	Image img, size_t k, HistogramScratch hist, Histogram reps, u8 *out
 ) {
 	size_t P = (size_t)img.width * img.height;
@@ -143,13 +143,13 @@ int extract_palette(
 
 	ranges[0] = (Range){.offset = 0, .length = nbins};
 	eigen_store(&arr, 0, pca(reps, ranges[0]));
-	int count = 1;
+	size_t count = 1;
 	float eps = arr.val[0] * 1e-6f;	 // relative to the root spread
 
-	while (count < (int)k) {
+	while (count < k) {
 		int bi = 0;
 		float bv = arr.val[0];
-		for (int i = 1; i < count; ++i)
+		for (size_t i = 1; i < count; ++i)
 			if (arr.val[i] > bv) {
 				bv = arr.val[i];
 				bi = i;
@@ -185,7 +185,7 @@ int extract_palette(
 		count++;
 	}
 
-	for (int i = 0; i < count; ++i) {
+	for (size_t i = 0; i < count; ++i) {
 		oklab_to_rgb(weighted_mean(reps, ranges[i]), out + i * 3);
 	}
 
