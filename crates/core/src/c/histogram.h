@@ -5,7 +5,7 @@
 
 typedef struct {
 	size_t threshold;
-	uint32_t *bins0, *bins1;
+	size_t *bins0, *bins1;
 	u8 *work, *aux;
 } HistogramScratch;
 

@@ -15,6 +15,7 @@ use repalette_palettes::{self as palettes};
 mod imgio;
 
 const DEFAULT_EXTRACT: u16 = 16;
+const EXTRACT_THRESHOLD: usize = 1 << 18;
 
 fn dither_values() -> PossibleValuesParser {
 	let ditherers = repalette::get_ditherers();
@@ -189,7 +190,7 @@ fn run_palette(action: PaletteArgs) {
 		},
 		PaletteArgs::Extract { image, extract } => {
 			let mut img = read_image(&image);
-			let palette = repalette::extract_palette(&mut img, extract);
+			let palette = repalette::extract_palette(&mut img, extract, EXTRACT_THRESHOLD);
 			print_colors(&mut out, palette.as_slice());
 		}
 	};
@@ -206,9 +207,9 @@ fn resolve_palette(args: &ApplyArgs, input: &mut Image) -> Palette {
 	if let Some(path) = &args.palette_from {
 		let count = args.extract.unwrap_or(DEFAULT_EXTRACT);
 		let mut source = read_image(path);
-		repalette::extract_palette(&mut source, count)
+		repalette::extract_palette(&mut source, count, EXTRACT_THRESHOLD)
 	} else if let Some(count) = args.extract {
-		repalette::extract_palette(input, count)
+		repalette::extract_palette(input, count, EXTRACT_THRESHOLD)
 	} else if let Some(name) = args.palette.as_deref() {
 		let colors = palettes::get(name).unwrap_or_else(|| unknown_preset(name));
 		Palette::from_colors(colors)

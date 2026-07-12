@@ -46,7 +46,7 @@ mod c {
 			k: usize,
 			threshold: usize,
 			soa: *mut MaybeUninit<f32>,
-			bins: *mut MaybeUninit<u32>,
+			bins: *mut MaybeUninit<usize>,
 			pixbuf: *mut MaybeUninit<u8>,
 			out: *mut u8,
 		) -> usize;
@@ -116,16 +116,13 @@ pub fn process_index(img: &mut Image, palette: &Palette, ditherer: &str) -> Vec<
 	unsafe { out.assume_init().into() }
 }
 
-const EXTRACT_THRESHOLD: usize = 1 << 18;
-
-pub fn extract_palette(img: &mut Image, count: u16) -> Palette {
+pub fn extract_palette(img: &mut Image, count: u16, threshold: usize) -> Palette {
 	let k = usize::from(count.clamp(1, 256));
 	let w = img.width as usize;
 	let h = img.height as usize;
-	let thr = EXTRACT_THRESHOLD;
 
-	let mut soa = Box::<[f32]>::new_uninit_slice(thr * 4);
-	let mut bins = Box::<[u32]>::new_uninit_slice((thr + 1) * 2);
+	let mut soa = Box::<[f32]>::new_uninit_slice(threshold * 4);
+	let mut bins = Box::<[usize]>::new_uninit_slice((threshold + 1) * 2);
 	let mut pix = Box::<[u8]>::new_uninit_slice(w * h * 4 * 2);
 
 	let mut out = [[0u8; 3]; 256];
@@ -136,7 +133,7 @@ pub fn extract_palette(img: &mut Image, count: u16) -> Palette {
 			img.width,
 			img.height,
 			k,
-			thr,
+			threshold,
 			soa.as_mut_ptr(),
 			bins.as_mut_ptr(),
 			pix.as_mut_ptr(),

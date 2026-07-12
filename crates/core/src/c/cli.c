@@ -1,7 +1,7 @@
 #include <stddef.h>
 
-#include "extract.h"
 #include "dither.h"
+#include "extract.h"
 
 size_t ditherer_count(void) { return DITHER_COUNT; }
 
@@ -60,7 +60,7 @@ void repalette_process_index(
 
 size_t repalette_extract(
 	u8* pixels, u32 width, u32 height, size_t k, size_t threshold, float* soa,
-	u32* bins, u8* pixbuf, u8* out
+	size_t* bins, u8* pixbuf, u8* out
 ) {
 	size_t P = (size_t)width * height;
 
