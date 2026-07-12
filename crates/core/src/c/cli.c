@@ -1,18 +1,20 @@
+#include <stddef.h>
+
 #include "extract.h"
 #include "repalette.h"
 
-int ditherer_count(void) { return DITHER_COUNT; }
+size_t ditherer_count(void) { return DITHER_COUNT; }
 
-const char* ditherer_name(int i) { return dither_names[i]; }
+const char* ditherer_name(size_t i) { return dither_names[i]; }
 
-const char* ditherer_display(int i) { return dither_display_names[i]; }
+const char* ditherer_display(size_t i) { return dither_display_names[i]; }
 
-static Palette build_palette(const u8* colors, size_t count, int* buffer) {
+static Palette build_palette(const u8* colors, size_t count, i32* buffer) {
 	size_t size = (count + 3) / 4 * 4;
 
-	int* rs = buffer + 0 * size;
-	int* gs = buffer + 1 * size;
-	int* bs = buffer + 2 * size;
+	i32* rs = buffer + 0 * size;
+	i32* gs = buffer + 1 * size;
+	i32* bs = buffer + 2 * size;
 
 	for (size_t i = 0; i < count; ++i) {
 		rs[i] = colors[i * 3 + 0];
@@ -35,10 +37,10 @@ static Palette build_palette(const u8* colors, size_t count, int* buffer) {
 }
 
 void repalette_process(
-	u8* pixels, int width, int height, const u8* colors, size_t count,
-	int ditherer
+	u8* pixels, u32 width, u32 height, const u8* colors, size_t count,
+	size_t ditherer
 ) {
-	int buffer[3 * 256];
+	i32 buffer[3 * 256];
 	Palette pal = build_palette(colors, count, buffer);
 
 	Image img = {.pixels = pixels, .width = width, .height = height};
@@ -46,19 +48,19 @@ void repalette_process(
 }
 
 void repalette_process_index(
-	u8* pixels, int width, int height, const u8* colors, size_t count,
-	int ditherer, u8* out
+	u8* pixels, u32 width, u32 height, const u8* colors, size_t count,
+	size_t ditherer, u8* out
 ) {
-	int buffer[3 * 256];
+	i32 buffer[3 * 256];
 	Palette pal = build_palette(colors, count, buffer);
 
 	Image img = {.pixels = pixels, .width = width, .height = height};
 	recolor_index(img, pal, (Ditherer)ditherer, out);
 }
 
-int repalette_extract(
-	u8* pixels, int width, int height, int k, int threshold, float* soa,
-	uint32_t* bins, u8* pixbuf, u8* out
+size_t repalette_extract(
+	u8* pixels, u32 width, u32 height, size_t k, size_t threshold, float* soa,
+	u32* bins, u8* pixbuf, u8* out
 ) {
 	size_t P = (size_t)width * height;
 

@@ -229,9 +229,6 @@ static inline void eigen_store(EigenArray *arr, size_t i, Eigen e) {
 int extract_palette(
 	Image img, int k, HistogramScratch hist, OklabHist reps, u8 *out
 ) {
-	if (k < 1) k = 1;
-	if (k > 256) k = 256;
-
 	size_t P = (size_t)img.width * img.height;
 	if (P == 0) return 0;
 

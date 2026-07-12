@@ -2,32 +2,30 @@
 #define REPALETTE_H
 
 #include <stddef.h>
-#include <stdint.h>
 
-typedef uint8_t u8;
-typedef uint32_t Hex;
+#include "types.h"
 
 // Images are fixed to 4 channels (RGBA) so each pixel is one 32-bit unit.
 #define CHANNELS 4
 
 typedef struct {
-	int r;
-	int g;
-	int b;
+	i32 r;
+	i32 g;
+	i32 b;
 } Color;
 
 typedef struct {
 	size_t size;
 
-	const int *rs;
-	const int *gs;
-	const int *bs;
+	const i32 *rs;
+	const i32 *gs;
+	const i32 *bs;
 } Palette;
 
 typedef struct {
 	u8 *pixels;
-	int width;
-	int height;
+	u32 width;
+	u32 height;
 } Image;
 
 #define DITHERERS(X) \
