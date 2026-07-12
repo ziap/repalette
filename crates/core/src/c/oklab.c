@@ -1,38 +1,64 @@
 #include "oklab.h"
 
-#include <math.h>
+// Source:
+// https://sepwww.stanford.edu/data/media/public/oldsep/stew/ForDaveHale/sep148stew1.pdf
+static inline float fast_cbrt(float x) {
+	const float onethird = 1.0f / 3.0f;
+	const float fourthirds = 4.0f / 3.0f;
 
-// srgb_to_linear ~ u * P(u): 10-term relative-weighted least squares.
-static inline float srgb_to_linear(float fc) {
-	double u = (double)fc;
-	double y = 128.61672087344032918;
-	y = y * u + -545.34832072837166906;
-	y = y * u + 944.69545728598676127;
-	y = y * u + -852.50914707482228713;
-	y = y * u + 417.41972351889039631;
-	y = y * u + -98.3093401783714414;
-	y = y * u + 2.2075970818635943405;
-	y = y * u + 4.3273438954548665174;
-	y = y * u + -0.17638894470563296052;
-	y = y * u + 0.078165359869162395503;
-	return (float)(y * u);
+	float thirdx = x * onethird;
+	union {
+		uint32_t ix;
+		float fx;
+	} z;
+
+	z.fx = x;
+	z.ix = 0x54a21d2a - z.ix / 3;
+	float y = z.fx;
+
+	y *= fourthirds - thirdx * y * y * y;
+	y *= fourthirds - thirdx * y * y * y;
+	y *= fourthirds - thirdx * y * y * y;
+	return y * y * x;
 }
 
-// linear_to_srgb ~ P(u)/Q(u): 5/5 relative-weighted rational.
-static inline float linear_to_srgb(float fc) {
+// srgb_to_linear: exact linear segment below the sRGB threshold, 5/5 Remez
+// minimax rational (absolute, ~2.7e-9 over [0.04045, 1]) above.
+static inline float srgb_to_linear(float fc) {
+	if (fc <= 0.04045f) return fc / 12.92f;
 	double u = (double)fc;
-	if (u < 0.0) u = 0.0;
-	double p = 11633054.7415025129;
-	p = p * u + 10242648.53377083;
-	p = p * u + 619916.214446767282;
-	p = p * u + -1954.9656243729929;
-	p = p * u + 12.9431969726238067;
-	p = p * u;
-	double q = 4344011.89010249388;
-	q = q * u + 15032507.989132951;
-	q = q * u + 3082009.22765459175;
-	q = q * u + 37563.7562430801085;
-	q = q * u + -140.03666135446511;
+	double p = 6.83538057954819896;
+	p = p * u + 12.2085894395117097;
+	p = p * u + 5.25367207907485761;
+	p = p * u + 0.762688391405956183;
+	p = p * u + 0.0429712638191277381;
+	p = p * u + 0.000833998108215813823;
+	double q = 0.0205513280263164009;
+	q = q * u + -0.242152119179972029;
+	q = q * u + 3.36551634066526532;
+	q = q * u + 13.0407745784694425;
+	q = q * u + 7.91944563316124088;
+	q = q * u + 1.0;
+	return (float)(p / q);
+}
+
+// linear_to_srgb: exact linear segment below the sRGB threshold, 5/5 Remez
+// minimax rational (absolute, ~3.6e-6 over [0.0031308, 1]) above. The branch
+// also covers 0/negatives, so the rational only runs where it is pole-free.
+static inline float linear_to_srgb(float fc) {
+	if (fc <= 0.0031308f) return 12.92f * fc;
+	double u = (double)fc;
+	double p = 241262.022993526948;
+	p = p * u + 479970.948495260698;
+	p = p * u + 122530.069429288926;
+	p = p * u + 5100.36843802263403;
+	p = p * u + 25.2985242058552079;
+	p = p * u + -0.0221751769541056964;
+	double q = 70548.2611011445298;
+	q = q * u + 471560.259452460904;
+	q = q * u + 278914.196370766501;
+	q = q * u + 27400.9231571624867;
+	q = q * u + 467.126443353403846;
 	q = q * u + 1.0;
 	return (float)(p / q);
 }
@@ -54,7 +80,7 @@ Oklab rgb_to_oklab(Frgb c) {
 	float m = 0.2119034982f * lr + 0.6806995451f * lg + 0.1073969566f * lb;
 	float s = 0.0883024619f * lr + 0.2817188376f * lg + 0.6299787005f * lb;
 
-	float l_ = cbrtf(l), m_ = cbrtf(m), s_ = cbrtf(s);
+	float l_ = fast_cbrt(l), m_ = fast_cbrt(m), s_ = fast_cbrt(s);
 
 	return (Oklab){
 		.l = 0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_,

@@ -45,7 +45,4 @@ fn main() {
 	drop(stdout);
 
 	build.compile("repalette_core");
-
-	// TODO: remove libm
-	println!("cargo:rustc-link-lib=m");
 }
