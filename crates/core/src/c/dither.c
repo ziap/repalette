@@ -1,4 +1,4 @@
-#include "repalette.h"
+#include "dither.h"
 
 static inline void update_pixel(
 	Image img, u32 x, u32 y, i32x4 err, i32 mul, i32 div
