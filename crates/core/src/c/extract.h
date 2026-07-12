@@ -3,7 +3,7 @@
 
 #include "histogram.h"
 
-extern int extract_palette(
+extern size_t extract_palette(
 	Image img, size_t k, HistogramScratch hist, Histogram reps, u8 *out
 );
 

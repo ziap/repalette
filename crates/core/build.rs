@@ -22,8 +22,6 @@ fn main() {
 		.flags(native_args.iter());
 
 	// Automatically generate dependencies using -MM
-	// NOTE: this is only for making it work with Rust's incremental toolchain
-	// Recompiling every time is fast enough and preferred 
 	let compiler = build.get_compiler();
 	let mut stdout = std::io::stdout().lock();
 	for src in SOURCES {

@@ -4,7 +4,7 @@
 #include "types.h"
 
 typedef struct {
-	int threshold;
+	size_t threshold;
 	uint32_t *bins0, *bins1;
 	u8 *work, *aux;
 } HistogramScratch;
