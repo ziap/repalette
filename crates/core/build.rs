@@ -7,6 +7,7 @@ fn main() {
 		"src/c/repalette.h",
 		"src/c/extract.h",
 		"src/c/oklab.h",
+		"src/c/types.h",
 	] {
 		println!("cargo:rerun-if-changed={path}");
 	}

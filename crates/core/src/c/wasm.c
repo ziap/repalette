@@ -18,29 +18,29 @@ static void resize(size_t new_size) {
 }
 
 struct {
-	int size;
-	int capacity;
+	size_t size;
+	size_t capacity;
 
-	int *rs;
-	int *gs;
-	int *bs;
+	i32 *rs;
+	i32 *gs;
+	i32 *bs;
 } state;
 
-export int ditherer_count(void) { return DITHER_COUNT; }
+export size_t ditherer_count(void) { return DITHER_COUNT; }
 
 export const char *ditherer_display(Ditherer ditherer) {
 	return dither_display_names[ditherer];
 }
 
-export void palette_init(int capacity) {
-	int padded_capacity = (capacity + 3) / 4 * 4;
+export void palette_init(size_t capacity) {
+	size_t padded_capacity = (capacity + 3) / 4 * 4;
 	state.size = 0;
 	state.capacity = padded_capacity;
 
-	resize(padded_capacity * 3 * sizeof(int));
-	state.rs = (int *)memory + 0 * padded_capacity;
-	state.gs = (int *)memory + 1 * padded_capacity;
-	state.bs = (int *)memory + 2 * padded_capacity;
+	resize(padded_capacity * 3 * sizeof(i32));
+	state.rs = (i32 *)memory + 0 * padded_capacity;
+	state.gs = (i32 *)memory + 1 * padded_capacity;
+	state.bs = (i32 *)memory + 2 * padded_capacity;
 }
 
 export void palette_add(u8 red, u8 green, u8 blue) {
@@ -51,21 +51,21 @@ export void palette_add(u8 red, u8 green, u8 blue) {
 	state.size += 1;
 }
 
-export u8 *get_pixels(int width, int height) {
-	size_t offset = state.capacity * 3 * sizeof(int);
-	resize(4 * width * height + offset);
+export u8 *get_pixels(u32 width, u32 height) {
+	size_t offset = state.capacity * 3 * sizeof(i32);
+	resize((size_t)4 * width * height + offset);
 	return memory + offset;
 }
 
-export void update_canvas(int width, int height, Ditherer ditherer) {
+export void update_canvas(u32 width, u32 height, Ditherer ditherer) {
 	if (state.size == 0) return;
-	for (int i = state.size; i < state.capacity; ++i) {
+	for (size_t i = state.size; i < state.capacity; ++i) {
 		state.rs[i] = state.rs[state.size - 1];
 		state.gs[i] = state.gs[state.size - 1];
 		state.bs[i] = state.bs[state.size - 1];
 	}
 
-	u8 *pixels = memory + state.capacity * 3 * sizeof(int);
+	u8 *pixels = memory + state.capacity * 3 * sizeof(i32);
 	Palette palette = {
 		.size = state.capacity,
 		.rs = state.rs,

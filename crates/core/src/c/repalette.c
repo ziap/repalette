@@ -1,15 +1,12 @@
 #include "repalette.h"
 
-#include <limits.h>
-
-typedef int32_t i32x4 __attribute__((vector_size(16)));
-typedef uint8_t u8x4 __attribute__((vector_size(4)));
-
 static inline void update_pixel(
-	Image img, int x, int y, i32x4 err, int mul, int div
+	Image img, u32 x, u32 y, i32x4 err, i32 mul, i32 div
 ) {
-	if (x < 0 || x >= img.width) return;
-	size_t idx = CHANNELS * (y * img.width + x);
+	// A negative neighbour offset underflows u32, so a single unsigned check
+	// catches both the left (wrapped-around) and right edges.
+	if (x >= img.width) return;
+	size_t idx = CHANNELS * ((size_t)y * img.width + x);
 
 	// One pixel is a 4-byte RGBA unit: load + widen the channels into a vector.
 	u8x4 bytes;
@@ -29,7 +26,7 @@ static inline void update_pixel(
 }
 
 #define DEFINE_DITHER(name, body) \
-	static void dither_##name(Image img, int x, int y, i32x4 err) body
+	static void dither_##name(Image img, u32 x, u32 y, i32x4 err) body
 
 DEFINE_DITHER(FLOYD_STEINBERG, {
 	update_pixel(img, x + 1, y + 0, err, 7, 16);
@@ -107,8 +104,8 @@ DEFINE_DITHER(NONE, {
 	(void)err;
 })
 
-static int find_nearest(Palette palette, Color c) {
-	i32x4 vmin = {INT_MAX, INT_MAX, INT_MAX, INT_MAX};
+static i32 find_nearest(Palette palette, Color c) {
+	i32x4 vmin = {INT32_MAX, INT32_MAX, INT32_MAX, INT32_MAX};
 	i32x4 vlane = {0, 1, 2, 3};
 	i32x4 vbest = vlane;
 
@@ -130,9 +127,9 @@ static int find_nearest(Palette palette, Color c) {
 		vlane += 4;
 	}
 
-	int min_diff = vmin[0];
-	int best = vbest[0];
-	for (int k = 1; k < 4; ++k) {
+	i32 min_diff = vmin[0];
+	i32 best = vbest[0];
+	for (i32 k = 1; k < 4; ++k) {
 		if (vmin[k] < min_diff || (vmin[k] == min_diff && vbest[k] < best)) {
 			min_diff = vmin[k];
 			best = vbest[k];
@@ -143,9 +140,9 @@ static int find_nearest(Palette palette, Color c) {
 }
 
 #define RECOLOR_BODY(name, WRITE)                  \
-	for (int y = 0; y < img.height; ++y) {           \
-		for (int x = 0; x < img.width; ++x) {          \
-			size_t pos = (size_t)(y * img.width + x);    \
+	for (u32 y = 0; y < img.height; ++y) {           \
+		for (u32 x = 0; x < img.width; ++x) {          \
+			size_t pos = (size_t)y * img.width + x;      \
 			size_t idx = CHANNELS * pos;                 \
                                                    \
 			Color old_color = {                          \
@@ -154,7 +151,7 @@ static int find_nearest(Palette palette, Color c) {
 				img.pixels[idx + 2],                       \
 			};                                           \
                                                    \
-			int best = find_nearest(palette, old_color); \
+			i32 best = find_nearest(palette, old_color); \
                                                    \
 			i32x4 error = {                              \
 				old_color.r - palette.rs[best],            \

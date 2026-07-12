@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
-use alloc::{vec, vec::Vec};
-use core::ffi::{CStr, c_char, c_int};
+use alloc::vec::Vec;
+use core::ffi::{CStr, c_char};
 
 use crate::palette::Palette;
 
@@ -13,42 +13,43 @@ pub struct Image {
 
 mod c {
 	use super::*;
+	use core::mem::MaybeUninit;
 
 	unsafe extern "C" {
 		pub fn repalette_process(
 			pixels: *mut u8,
-			width: c_int,
-			height: c_int,
+			width: u32,
+			height: u32,
 			colors: *const u8,
 			count: usize,
-			ditherer: c_int,
+			ditherer: usize,
 		);
 
 		pub fn repalette_process_index(
 			pixels: *mut u8,
-			width: c_int,
-			height: c_int,
+			width: u32,
+			height: u32,
 			colors: *const u8,
 			count: usize,
-			ditherer: c_int,
-			out: *mut u8,
+			ditherer: usize,
+			out: *mut MaybeUninit<u8>,
 		);
 
-		pub fn ditherer_count() -> c_int;
-		pub fn ditherer_name(index: c_int) -> *const c_char;
-		pub fn ditherer_display(index: c_int) -> *const c_char;
+		pub fn ditherer_count() -> usize;
+		pub fn ditherer_name(index: usize) -> *const c_char;
+		pub fn ditherer_display(index: usize) -> *const c_char;
 
 		pub fn repalette_extract(
 			pixels: *mut u8,
-			width: c_int,
-			height: c_int,
-			k: c_int,
-			threshold: c_int,
-			soa: *mut f32,
-			bins: *mut u32,
-			pixbuf: *mut u8,
+			width: u32,
+			height: u32,
+			k: usize,
+			threshold: usize,
+			soa: *mut MaybeUninit<f32>,
+			bins: *mut MaybeUninit<u32>,
+			pixbuf: *mut MaybeUninit<u8>,
 			out: *mut u8,
-		) -> c_int;
+		) -> usize;
 	}
 }
 
@@ -74,7 +75,7 @@ pub fn get_ditherers() -> Box<[Ditherer]> {
 		.collect()
 }
 
-fn dither_index(name: &str) -> c_int {
+fn dither_index(name: &str) -> usize {
 	(0..unsafe { c::ditherer_count() })
 		.find(|&i| unsafe { CStr::from_ptr(c::ditherer_name(i)) }.to_str() == Ok(name))
 		.expect("clap validated the ditherer name")
@@ -85,8 +86,8 @@ pub fn process(img: &mut Image, palette: &Palette, ditherer: &str) {
 	unsafe {
 		c::repalette_process(
 			img.pixels.as_mut_ptr(),
-			img.width as c_int,
-			img.height as c_int,
+			img.width,
+			img.height,
 			colors.as_flattened().as_ptr(),
 			colors.len(),
 			dither_index(ditherer),
@@ -96,13 +97,15 @@ pub fn process(img: &mut Image, palette: &Palette, ditherer: &str) {
 
 pub fn process_index(img: &mut Image, palette: &Palette, ditherer: &str) -> Vec<u8> {
 	let colors = palette.as_slice();
-	let mut out = vec![0u8; (img.width * img.height) as usize];
+	let w = img.width as usize;
+	let h = img.height as usize;
+	let mut out = Box::<[u8]>::new_uninit_slice(w * h);
 
 	unsafe {
 		c::repalette_process_index(
 			img.pixels.as_mut_ptr(),
-			img.width as c_int,
-			img.height as c_int,
+			img.width,
+			img.height,
 			colors.as_flattened().as_ptr(),
 			colors.len(),
 			dither_index(ditherer),
@@ -110,35 +113,36 @@ pub fn process_index(img: &mut Image, palette: &Palette, ditherer: &str) -> Vec<
 		)
 	};
 
-	out
+	unsafe { out.assume_init().into() }
 }
 
-const EXTRACT_THRESHOLD: usize = 1 << 19; // 524288, multiple of 4
+const EXTRACT_THRESHOLD: usize = 1 << 18;
 
 pub fn extract_palette(img: &mut Image, count: u16) -> Palette {
-	let k = count.clamp(1, 256) as usize;
-	let p = (img.width * img.height) as usize;
+	let k = usize::from(count.clamp(1, 256));
+	let w = img.width as usize;
+	let h = img.height as usize;
 	let thr = EXTRACT_THRESHOLD;
 
 	let mut soa = Box::<[f32]>::new_uninit_slice(thr * 4);
 	let mut bins = Box::<[u32]>::new_uninit_slice((thr + 1) * 2);
-	let mut pix = Box::<[u8]>::new_uninit_slice(p * 4 * 2);
+	let mut pix = Box::<[u8]>::new_uninit_slice(w * h * 4 * 2);
 
 	let mut out = [[0u8; 3]; 256];
 
 	let n = unsafe {
 		c::repalette_extract(
 			img.pixels.as_mut_ptr(),
-			img.width as c_int,
-			img.height as c_int,
-			k as c_int,
-			thr as c_int,
-			soa.as_mut_ptr() as *mut f32,
-			bins.as_mut_ptr() as *mut u32,
-			pix.as_mut_ptr() as *mut u8,
+			img.width,
+			img.height,
+			k,
+			thr,
+			soa.as_mut_ptr(),
+			bins.as_mut_ptr(),
+			pix.as_mut_ptr(),
 			out[..k].as_flattened_mut().as_mut_ptr(),
 		)
-	} as usize;
+	};
 
 	Palette::from_colors(&out[..n])
 }
