@@ -16,4 +16,4 @@ do
 done
 
 $CC_WASM $CFLAGS $WASM_FLAGS -o web/repalette.wasm \
-  crates/core/src/c/wasm.c crates/core/src/c/repalette.c
+  crates/core/src/c/wasm.c crates/core/src/c/dither.c
