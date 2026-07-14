@@ -58,7 +58,7 @@ void repalette_process_index(
 	recolor_index(img, pal, (Ditherer)ditherer, out);
 }
 
-void repalette_process_multisample(
+void repalette_process_multisample_2x(
 	u8* pixels, u32 width, u32 height, const u8* colors, size_t count,
 	size_t ditherer, i16* dither_ring, u16* conv_ring
 ) {
@@ -66,7 +66,21 @@ void repalette_process_multisample(
 	Palette pal = build_palette(colors, count, buffer);
 
 	Image img = {.pixels = pixels, .width = width, .height = height};
-	recolor_multisample(img, pal, (Ditherer)ditherer, dither_ring, conv_ring);
+	recolor_multisample_2x(img, pal, (Ditherer)ditherer, dither_ring, conv_ring);
+}
+
+void repalette_process_multisample_4x(
+	u8* pixels, u32 width, u32 height, const u8* colors, size_t count,
+	size_t ditherer, i16* dither_ring, u16* conv_ring_1, i16* mid_row,
+	u16* conv_ring_2
+) {
+	i32 buffer[3 * 256];
+	Palette pal = build_palette(colors, count, buffer);
+
+	Image img = {.pixels = pixels, .width = width, .height = height};
+	recolor_multisample_4x(
+		img, pal, (Ditherer)ditherer, dither_ring, conv_ring_1, mid_row, conv_ring_2
+	);
 }
 
 size_t repalette_extract(

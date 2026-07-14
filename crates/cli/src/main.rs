@@ -104,9 +104,19 @@ struct ApplyArgs {
 	)]
 	dither: String,
 
-	/// Multisample: dither at 2x then downsample (higher quality, truecolor output)
-	#[arg(short, long)]
-	multisample: bool,
+	/// Multisample: dither at NxN then downsample (higher quality, truecolor output)
+	#[arg(short, long, value_name = "FACTOR")]
+	multisample: Option<Multisample>,
+}
+
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+enum Multisample {
+	/// 2x supersampling
+	#[value(name = "2x")]
+	X2,
+	/// 4x supersampling
+	#[value(name = "4x")]
+	X4,
 }
 
 #[derive(Subcommand, Debug)]
@@ -245,18 +255,16 @@ fn run_apply(args: ApplyArgs) {
 
 	let mut img = Image::read(&mut reader).unwrap_or_else(print_and_exit);
 
+	let palette = resolve_palette(&args, &img);
+	let colors = palette.as_slice();
+
 	let out_file = File::create(&args.output)
 		.map_err(|err| format!("Failed to open the target image: {err}"))
 		.unwrap_or_else(print_and_exit);
 
 	let mut writer = BufWriter::new(out_file);
 
-	let palette = resolve_palette(&args, &img);
-	let colors = palette.as_slice();
-
-	// Multisample output is truecolor (averaged pixels aren't palette-restricted),
-	// so it always bypasses the indexed-PNG path.
-	if format == ImageFormat::Png && !args.multisample {
+	if format == ImageFormat::Png && args.multisample.is_none() {
 		let indices = repalette::process_index(&mut img, &palette, &args.dither);
 
 		let indexed = IndexedImage {
@@ -270,10 +278,10 @@ fn run_apply(args: ApplyArgs) {
 			.write_png(&mut writer)
 			.unwrap_or_else(print_and_exit);
 	} else {
-		if args.multisample {
-			repalette::process_multisample(&mut img, &palette, &args.dither);
-		} else {
-			repalette::process(&mut img, &palette, &args.dither);
+		match args.multisample {
+			Some(Multisample::X4) => repalette::process_multisample_4x(&mut img, &palette, &args.dither),
+			Some(Multisample::X2) => repalette::process_multisample_2x(&mut img, &palette, &args.dither),
+			None => repalette::process(&mut img, &palette, &args.dither),
 		}
 
 		img
