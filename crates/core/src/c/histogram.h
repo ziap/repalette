@@ -6,7 +6,6 @@
 typedef struct {
 	u32 threshold;
 	u64 *bins0, *bins1;
-	u8 *work, *aux;
 } HistogramScratch;
 
 typedef struct {

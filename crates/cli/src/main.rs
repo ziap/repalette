@@ -199,8 +199,8 @@ fn run_palette(action: PaletteArgs) {
 
 fn run_extract(args: ExtractArgs) {
 	let mut out = std::io::stdout().lock();
-	let mut img = read_image(&args.image);
-	let palette = repalette::extract_palette(&mut img, args.extract, EXTRACT_THRESHOLD);
+	let img = read_image(&args.image);
+	let palette = repalette::extract_palette(img, args.extract, EXTRACT_THRESHOLD);
 	print_colors(&mut out, palette.as_slice());
 }
 
@@ -212,13 +212,13 @@ fn main() {
 	}
 }
 
-fn resolve_palette(args: &ApplyArgs, input: &mut Image) -> Palette {
+fn resolve_palette(args: &ApplyArgs, input: &Image) -> Palette {
 	if let Some(path) = &args.palette_from {
 		let count = args.extract.unwrap_or(DEFAULT_EXTRACT);
-		let mut source = read_image(path);
-		repalette::extract_palette(&mut source, count, EXTRACT_THRESHOLD)
+		let source = read_image(path);
+		repalette::extract_palette(source, count, EXTRACT_THRESHOLD)
 	} else if let Some(count) = args.extract {
-		repalette::extract_palette(input, count, EXTRACT_THRESHOLD)
+		repalette::extract_palette(input.clone(), count, EXTRACT_THRESHOLD)
 	} else if let Some(name) = args.palette.as_deref() {
 		let colors = palettes::get(name).unwrap_or_else(|| unknown_preset(name));
 		Palette::from_colors(colors)
@@ -247,7 +247,7 @@ fn run_apply(args: ApplyArgs) {
 
 	let mut writer = BufWriter::new(out_file);
 
-	let palette = resolve_palette(&args, &mut img);
+	let palette = resolve_palette(&args, &img);
 	let colors = palette.as_slice();
 
 	if format == ImageFormat::Png {
