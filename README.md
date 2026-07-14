@@ -9,6 +9,7 @@ a CLI utility and a web application.
 
 - Recolor images using nearest neighbor search.
 - Optional dithering for smoother results.
+- Palette extraction from any image
 - SIMD accelerated palette search and dithering.
 - Built-in palette presets bundled into the binary at compile time.
 - Optimized encoding for small-palette PNG export.
@@ -64,9 +65,19 @@ repalette apply input.jpg output.png -p nord
 repalette apply input.jpg output-no-dither.png -c 000000,ff0000,ffffff --dither none
 repalette apply input.jpg output-burkes.png -c 000000,ff0000,ffffff --dither burkes
 
+# recolor using a palette extracted from the image itself (compression)
+repalette apply input.jpg output-extracted.png -k 32
+
+# recolor using a palette extracted from a different reference image
+repalette apply input.jpg output-transfer.png --palette-from reference.jpg
+
 # browse the presets
 repalette palette list
 repalette palette show gruvbox-dark
+
+# extract an N-color palette from an image
+repalette extract input.jpg -k 16
+
 ```
 
 | input.jpg                  | output-no-dither.png                  | output-burkes.png                  |
