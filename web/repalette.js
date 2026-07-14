@@ -127,25 +127,30 @@ const paletteSelector = document.querySelector('#palette-select')
 const palettePlaceholder = paletteSelector.querySelector('option')
 palettePlaceholder.textContent = 'Select palette'
 
-// The bundled Gogh presets: one "name: rrggbb,rrggbb,..." line per palette.
+// The bundled presets: one "name: key=rrggbb key=rrggbb ..." line per palette.
 fetch('./palettes.txt').then(async response => {
   if (!response.ok) throw new Error('HTTP ' + response.status)
   const text = await response.text()
 
   const themes = []
   for (const line of text.split('\n')) {
-    const [l, r] = line.split(':')
-    if (l === undefined || r === undefined) continue;
+    const sep = line.indexOf(':')
+    if (sep === -1) continue;
+
+    const l = line.slice(0, sep)
+    const r = line.slice(sep + 1)
 
     const name = l.split('-')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
 
-    const colors = r.trimStart().split(',')
-    const palette = new Array(colors.length)
-    for (let i = 0; i < colors.length; ++i) {
-      palette[i] = '#' +colors[i]
+    const palette = []
+    for (const token of r.trim().split(/\s+/)) {
+      const eq = token.indexOf('=')
+      if (eq === -1) continue
+      palette.push('#' + token.slice(eq + 1))
     }
+    if (palette.length === 0) continue
 
     const option = document.createElement('option')
     option.value = themes.length
