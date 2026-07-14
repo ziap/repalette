@@ -2,6 +2,8 @@
 
 #include <stddef.h>
 
+#include "types.h"
+
 static inline void update_pixel(
 	Image img, u32 x, u32 y, i32x4 err, i32 mul, i32 div
 ) {
@@ -242,53 +244,49 @@ static inline void update_ring(
 #define GUARD_RING(dy) \
 	if (row + (dy) >= hi_height) continue
 
-#define DEFINE_RING_DITHER(name)                                             \
-	static void dither_ring_##name(                                            \
-		i16 *dither_ring, u32 hi_width, u32 hi_height, u32 row, Palette palette, \
-		const u8 *source_row                                                     \
-	) {                                                                        \
-		i16 *slot = dither_ring + (u64)((row + 1) & 3) * hi_width * CHANNELS;    \
-		(void)hi_height;                                                         \
-		for (u32 x = 0; x < hi_width; ++x) {                                     \
-			u64 offset = (u64)x * CHANNELS;                                        \
-			const u8 *source_pixel = source_row + (u64)(x >> 1) * CHANNELS;        \
-			i16x4 accumulator, source;                                             \
-			u8x4 source_bytes;                                                     \
-			__builtin_memcpy(&accumulator, slot + offset, sizeof accumulator);     \
-			__builtin_memcpy(&source_bytes, source_pixel, sizeof source_bytes);    \
-			source = __builtin_convertvector(source_bytes, i16x4);                 \
-			i16x4 old = accumulator + source;                                      \
-			i16x4 under = old < 0;                                                 \
-			old = old & ~under;                                                    \
-			i16x4 over = old > 255;                                                \
-			old = (255 & over) | (old & ~over);                                    \
-			i32 best = find_nearest(                                               \
-				palette, (Color){                                                    \
-									 .r = old[0],                                              \
-									 .g = old[1],                                              \
-									 .b = old[2],                                              \
-								 }                                                           \
-			);                                                                     \
-			i16x4 quantized = {                                                    \
-				palette.rs[best],                                                    \
-				palette.gs[best],                                                    \
-				palette.bs[best],                                                    \
-				old[3],                                                              \
-			};                                                                     \
-			__builtin_memcpy(slot + offset, &quantized, sizeof quantized);         \
-			i16x4 error = old - quantized; /* alpha lane is old[3]-old[3] == 0 */  \
-			(void)error;                                                           \
-			TAPS_##name(APPLY_RING, GUARD_RING);                                   \
-		}                                                                        \
+#define DEFINE_RING_DITHER(name)                                              \
+	static void dither_ring_##name(                                             \
+		i16 *dither_ring, u32 width, u32 scale, u32 height, u32 row,              \
+		Palette palette, const u8 *source_row                                     \
+	) {                                                                         \
+		u32 hi_width = width * scale;                                             \
+		u32 hi_height = height * scale;                                           \
+		i16 *slot = dither_ring + (u64)((row + 1) & 3) * hi_width * CHANNELS;     \
+		(void)hi_height;                                                          \
+		for (u32 sx = 0; sx < width; ++sx) {                                      \
+			const u8 *source_pixel = source_row + (u64)sx * CHANNELS;               \
+			u8x4 source_bytes;                                                      \
+			__builtin_memcpy(&source_bytes, source_pixel, sizeof source_bytes);     \
+			i16x4 source = __builtin_convertvector(source_bytes, i16x4);            \
+			for (u32 k = 0; k < scale; ++k) {                                       \
+				u32 x = sx * scale + k;                                               \
+				u64 offset = (u64)x * CHANNELS;                                       \
+				i16x4 accumulator;                                                    \
+				__builtin_memcpy(&accumulator, slot + offset, sizeof accumulator);    \
+				i16x4 old = accumulator + source;                                     \
+				i16x4 under = old < 0;                                                \
+				old = old & ~under;                                                   \
+				i16x4 over = old > 255;                                               \
+				old = (255 & over) | (old & ~over);                                   \
+				i32 best = find_nearest(palette, (Color){old[0], old[1], old[2]});    \
+				i16x4 quantized = {                                                   \
+					palette.rs[best], palette.gs[best], palette.bs[best], old[3]        \
+				};                                                                    \
+				__builtin_memcpy(slot + offset, &quantized, sizeof quantized);        \
+				i16x4 error = old - quantized; /* alpha lane is old[3]-old[3] == 0 */ \
+				(void)error;                                                          \
+				TAPS_##name(APPLY_RING, GUARD_RING);                                  \
+			}                                                                       \
+		}                                                                         \
 	}
 
 #define X(name) DEFINE_RING_DITHER(name)
 DITHERERS(X)
 #undef X
 
-typedef void (*DitherRow)(i16 *, u32, u32, u32, Palette, const u8 *);
+typedef void (*RowDitherFn)(i16 *, u32, u32, u32, u32, Palette, const u8 *);
 
-static DitherRow dither_row_for(Ditherer dither) {
+static RowDitherFn row_ditherer(Ditherer dither) {
 	switch (dither) {
 #define X(e) \
 	case e: return dither_ring_##e;
@@ -311,12 +309,8 @@ static void conv_h_edge(const i16 *hi_row, u16 *sums, u32 x, u32 width) {
 	const i16 *p3 = base + r * CHANNELS;
 
 	sums += (u64)x * CHANNELS;
-	for (u32 channel = 0; channel < CHANNELS; ++channel) {
-		sums[channel] = (u16)(*p0 + 3 * *p1 + 3 * *p2 + *p3);
-		p0 += 1;
-		p1 += 1;
-		p2 += 1;
-		p3 += 1;
+	for (u32 c = 0; c < CHANNELS; ++c) {
+		sums[c] = (u16)(*(p0++) + 3 * *(p1++) + 3 * *(p2++) + *(p3++));
 	}
 }
 
@@ -337,86 +331,179 @@ static void conv_horizontal(const i16 *hi_row, u16 *sums, u32 width) {
 	if (width > 1) { conv_h_edge(hi_row, sums, width - 1, width); }
 }
 
-static void conv_vertical(
-	u16 *const rows[4], u32 last_row, u8 *out, u32 width
-) {
-	u16 weight[4];
-	weight[(last_row + 0) & 3] = 3;
-	weight[(last_row + 1) & 3] = 1;
-	weight[(last_row + 2) & 3] = 1;
-	weight[(last_row + 3) & 3] = 3;
+static void conv_vertical(u16 *rows[4], u32 row, u8 *out, u32 width) {
+	u16 w[4];
+	w[(row + 2) & 3] = 1;
+	w[(row + 3) & 3] = 3;
+	w[(row + 0) & 3] = 3;
+	w[(row + 1) & 3] = 1;
 
-	for (u64 i = 0; i < (u64)width * CHANNELS; i += CHANNELS) {
-		u16x4 r0, r1, r2, r3;
-		__builtin_memcpy(&r0, rows[0] + i, sizeof r0);
-		__builtin_memcpy(&r1, rows[1] + i, sizeof r1);
-		__builtin_memcpy(&r2, rows[2] + i, sizeof r2);
-		__builtin_memcpy(&r3, rows[3] + i, sizeof r3);
-		u16x4 sum =
-			weight[0] * r0 + weight[1] * r1 + weight[2] * r2 + weight[3] * r3;
-		u8x4 pixel = __builtin_convertvector((sum + 32) >> 6, u8x4);
-		__builtin_memcpy(out + i, &pixel, sizeof pixel);
+	const u16 *r0 = rows[0];
+	const u16 *r1 = rows[1];
+	const u16 *r2 = rows[2];
+	const u16 *r3 = rows[3];
+
+	for (u64 i = 0; i < (u64)width * CHANNELS; ++i) {
+		u16 s = w[0] * *(r0++) + w[1] * *(r1++) + w[2] * *(r2++) + w[3] * *(r3++);
+		*(out++) = (s + 32) / 64;
 	}
 }
 
-void recolor_multisample(
+static void conv_vertical_mid(u16 *rows[4], u32 row, i16 *out, u32 width) {
+	u16 w[4];
+	w[(row + 2) & 3] = 1;
+	w[(row + 3) & 3] = 3;
+	w[(row + 0) & 3] = 3;
+	w[(row + 1) & 3] = 1;
+
+	const u16 *r0 = rows[0];
+	const u16 *r1 = rows[1];
+	const u16 *r2 = rows[2];
+	const u16 *r3 = rows[3];
+
+	for (u64 i = 0; i < (u64)width * CHANNELS; ++i) {
+		u16 s = w[0] * *(r0++) + w[1] * *(r1++) + w[2] * *(r2++) + w[3] * *(r3++);
+		*(out++) = (i16)((s + 32) / 64);
+	}
+}
+
+typedef struct {
+	RowDitherFn fn;
+	i16 *dither_ring;
+	u16 *conv_ring;
+	Palette palette;
+	u32 width;
+	u32 height;
+	u32 scale;
+} RowDitherer;
+
+static inline void dither_row(const RowDitherer *s, u32 row, const u8 *source) {
+	u32 hi_width = s->width * s->scale;
+	u32 conv_width = hi_width / 2;	// conv_horizontal decimates 2x
+	u64 dither_stride = (u64)hi_width * CHANNELS;
+	u64 conv_stride = (u64)conv_width * CHANNELS;
+	u64 slot = (row + 1) & 3;
+
+	i16 *row_ptr = s->dither_ring + slot * dither_stride;
+	s->fn(s->dither_ring, s->width, s->scale, s->height, row, s->palette, source);
+	conv_horizontal(row_ptr, s->conv_ring + slot * conv_stride, conv_width);
+	__builtin_memset(row_ptr, 0, dither_stride * sizeof(i16));
+}
+
+static inline void pad_conv_row(u16 *dst, const u16 *src, u32 width) {
+	__builtin_memcpy(dst, src, (u64)width * CHANNELS * sizeof(u16));
+}
+
+void recolor_multisample_2x(
 	Image img, Palette palette, Ditherer dither, i16 *dither_ring, u16 *conv_ring
 ) {
 	u32 w = img.width;
 	u32 h = img.height;
 	if (w == 0 || h == 0) return;
 
-	u32 hi_width = 2 * w;
-	u32 hi_height = 2 * h;
-	u64 dither_stride = (u64)hi_width * CHANNELS;
+	u32 w2 = 2 * w;
+	u32 h2 = 2 * h;
+	u64 dither_stride = (u64)w2 * CHANNELS;
 	u64 conv_stride = (u64)w * CHANNELS;
 	u8 *pixels = img.pixels;
 
-	i16 *dither_rows[4];
 	u16 *conv_rows[4];
-	for (u32 i = 0; i < 4; ++i) {
-		dither_rows[i] = dither_ring + i * dither_stride;
-		conv_rows[i] = conv_ring + i * conv_stride;
-	}
+	for (u32 i = 0; i < 4; ++i) { conv_rows[i] = conv_ring + i * conv_stride; }
 
-	DitherRow dither_row = dither_row_for(dither);
+	RowDitherer ss = {
+		.fn = row_ditherer(dither),
+		.dither_ring = dither_ring,
+		.conv_ring = conv_ring,
+		.palette = palette,
+		.width = w,
+		.height = h,
+		.scale = 2,
+	};
 
 	__builtin_memset(dither_ring, 0, 4 * dither_stride * sizeof(i16));
 
-  // Handle top edge padding
-	dither_row(dither_ring, hi_width, hi_height, 0, palette, pixels);
-	dither_row(dither_ring, hi_width, hi_height, 1, palette, pixels);
-	conv_horizontal(dither_rows[1], conv_rows[1], w);
-	__builtin_memcpy(conv_rows[0], conv_rows[1], conv_stride * sizeof(u16));
-	__builtin_memset(dither_rows[1], 0, dither_stride * sizeof(i16));
-	conv_horizontal(dither_rows[2], conv_rows[2], w);
-	__builtin_memset(dither_rows[2], 0, dither_stride * sizeof(i16));
+	dither_row(&ss, 0, pixels);
+	pad_conv_row(conv_rows[0], conv_rows[1], w);
+	dither_row(&ss, 1, pixels);
 
 	for (u32 s = 1; s < h; ++s) {
-		u32 row1 = 2 * s;
-		u32 row2 = row1 + 1;
-		u32 slot1 = (row1 + 1) & 3;
-		u32 slot2 = (row2 + 1) & 3;
-		u8 *source = pixels + s * conv_stride;
+		const u8 *source = pixels + s * conv_stride;
 
-		dither_row(dither_ring, hi_width, hi_height, row1, palette, source);
-		conv_horizontal(dither_rows[slot1], conv_rows[slot1], w);
-		__builtin_memset(dither_rows[slot1], 0, dither_stride * sizeof(i16));
-
-		// Each iteration have enough information to output the previous row
-		conv_vertical(conv_rows, row1, pixels + (s - 1) * conv_stride, w);
-
-		dither_row(dither_ring, hi_width, hi_height, row2, palette, source);
-		conv_horizontal(dither_rows[slot2], conv_rows[slot2], w);
-		__builtin_memset(dither_rows[slot2], 0, dither_stride * sizeof(i16));
+		dither_row(&ss, 2 * s, source);
+		conv_vertical(conv_rows, 2 * s, pixels + (s - 1) * conv_stride, w);
+		dither_row(&ss, 2 * s + 1, source);
 	}
 
-  // Mirror the last row for the final convolution
-	u16 *prev_row = conv_rows[(2 * h + 0) & 3];
-	u16 *last_row = conv_rows[(2 * h + 1) & 3];
+	pad_conv_row(conv_rows[(h2 + 1) & 3], conv_rows[h2 & 3], w);
+	conv_vertical(conv_rows, h2, pixels + (h - 1) * conv_stride, w);
+}
 
-	__builtin_memcpy(last_row, prev_row, conv_stride * sizeof(u16));
-	conv_vertical(conv_rows, 2 * h, pixels + (h - 1) * conv_stride, w);
+void recolor_multisample_4x(
+	Image img, Palette palette, Ditherer dither, i16 *dither_ring,
+	u16 *conv_ring_1, i16 *mid_row, u16 *conv_ring_2
+) {
+	u32 w = img.width;
+	u32 h = img.height;
+	if (w == 0 || h == 0) return;
+
+	u32 w4 = 4 * w;
+	u32 h4 = 4 * h;
+
+	u32 w2 = 2 * w;
+	u32 h2 = 2 * h;
+
+	u64 out_stride = (u64)w * CHANNELS;
+	u64 mid_stride = (u64)w2 * CHANNELS;
+	u64 dither_stride = (u64)w4 * CHANNELS;
+	u8 *pixels = img.pixels;
+
+	u16 *conv1_rows[4];
+	u16 *conv2_rows[4];
+	for (u32 i = 0; i < 4; ++i) {
+		conv1_rows[i] = conv_ring_1 + i * mid_stride;
+		conv2_rows[i] = conv_ring_2 + i * out_stride;
+	}
+
+	RowDitherer ss = {
+		.fn = row_ditherer(dither),
+		.dither_ring = dither_ring,
+		.conv_ring = conv_ring_1,
+		.palette = palette,
+		.width = w,
+		.height = h,
+		.scale = 4,
+	};
+	__builtin_memset(dither_ring, 0, 4 * dither_stride * sizeof(i16));
+
+	dither_row(&ss, 0, pixels);
+
+	pad_conv_row(conv1_rows[0], conv1_rows[1], w2);
+	dither_row(&ss, 1, pixels);
+	dither_row(&ss, 2, pixels);
+	conv_vertical_mid(conv1_rows, 2, mid_row, w2);
+	conv_horizontal(mid_row, conv2_rows[1], w);
+	pad_conv_row(conv2_rows[0], conv2_rows[1], w);
+	dither_row(&ss, 3, pixels);
+
+	for (u32 s = 1; s < h; ++s) {
+		const u8 *source = pixels + (u64)s * out_stride;
+
+		dither_row(&ss, 4 * s, source);
+		conv_vertical_mid(conv1_rows, 4 * s, mid_row, w2);
+		conv_horizontal(mid_row, conv2_rows[(2 * s) & 3], w);
+		dither_row(&ss, 4 * s + 1, source);
+		dither_row(&ss, 4 * s + 2, source);
+		conv_vertical_mid(conv1_rows, 4 * s + 2, mid_row, w2);
+		conv_horizontal(mid_row, conv2_rows[(2 * s + 1) & 3], w);
+		conv_vertical(conv2_rows, 2 * s, pixels + (u64)(s - 1) * out_stride, w);
+		dither_row(&ss, 4 * s + 3, source);
+	}
+
+	pad_conv_row(conv1_rows[(h4 + 1) & 3], conv1_rows[h4 & 3], w2);
+	conv_vertical_mid(conv1_rows, h4, mid_row, w2);
+	conv_horizontal(mid_row, conv2_rows[h2 & 3], w);
+	pad_conv_row(conv2_rows[(h2 + 1) & 3], conv2_rows[h2 & 3], w);
+	conv_vertical(conv2_rows, h2, pixels + (u64)(h - 1) * out_stride, w);
 }
 
 const char **dither_names = (const char *[]){
