@@ -39,11 +39,31 @@ struct Args {
 enum Command {
 	/// Recolor an image to a palette
 	Apply(ApplyArgs),
+
+	/// Extract an optimal color palette from an image
+	Extract(ExtractArgs),
+
 	/// Inspect the built-in palette presets
 	Palette {
 		#[command(subcommand)]
 		action: PaletteArgs,
 	},
+}
+
+#[derive(clap::Args, Debug)]
+struct ExtractArgs {
+	/// Path to the image
+	image: Box<Path>,
+
+	/// Number of colors to extract (1-256)
+	#[arg(
+		short = 'k',
+		long,
+		value_name = "N",
+		default_value_t = DEFAULT_EXTRACT,
+		value_parser = clap::value_parser!(u16).range(1..=256),
+	)]
+	extract: u16,
 }
 
 #[derive(clap::Args, Debug)]
@@ -93,20 +113,6 @@ enum PaletteArgs {
 	Show {
 		/// Palette name
 		name: Box<str>,
-	},
-	/// Extract a palette from an image
-	Extract {
-		/// Path to the image
-		image: Box<Path>,
-		/// Number of colors to extract (1-256)
-		#[arg(
-			short = 'k',
-			long,
-			value_name = "N",
-			default_value_t = DEFAULT_EXTRACT,
-			value_parser = clap::value_parser!(u16).range(1..=256),
-		)]
-		extract: u16,
 	},
 }
 
@@ -188,17 +194,20 @@ fn run_palette(action: PaletteArgs) {
 			Some(colors) => print_colors(&mut out, colors),
 			None => unknown_preset(&name),
 		},
-		PaletteArgs::Extract { image, extract } => {
-			let mut img = read_image(&image);
-			let palette = repalette::extract_palette(&mut img, extract, EXTRACT_THRESHOLD);
-			print_colors(&mut out, palette.as_slice());
-		}
 	};
+}
+
+fn run_extract(args: ExtractArgs) {
+	let mut out = std::io::stdout().lock();
+	let mut img = read_image(&args.image);
+	let palette = repalette::extract_palette(&mut img, args.extract, EXTRACT_THRESHOLD);
+	print_colors(&mut out, palette.as_slice());
 }
 
 fn main() {
 	match Args::parse().command {
 		Command::Apply(args) => run_apply(args),
+		Command::Extract(args) => run_extract(args),
 		Command::Palette { action } => run_palette(action),
 	}
 }
