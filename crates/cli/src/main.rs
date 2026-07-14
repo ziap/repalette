@@ -103,6 +103,10 @@ struct ApplyArgs {
 		value_parser = dither_values(),
 	)]
 	dither: String,
+
+	/// Multisample: dither at 2x then downsample (higher quality, truecolor output)
+	#[arg(short, long)]
+	multisample: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -250,7 +254,9 @@ fn run_apply(args: ApplyArgs) {
 	let palette = resolve_palette(&args, &img);
 	let colors = palette.as_slice();
 
-	if format == ImageFormat::Png {
+	// Multisample output is truecolor (averaged pixels aren't palette-restricted),
+	// so it always bypasses the indexed-PNG path.
+	if format == ImageFormat::Png && !args.multisample {
 		let indices = repalette::process_index(&mut img, &palette, &args.dither);
 
 		let indexed = IndexedImage {
@@ -264,7 +270,11 @@ fn run_apply(args: ApplyArgs) {
 			.write_png(&mut writer)
 			.unwrap_or_else(print_and_exit);
 	} else {
-		repalette::process(&mut img, &palette, &args.dither);
+		if args.multisample {
+			repalette::process_multisample(&mut img, &palette, &args.dither);
+		} else {
+			repalette::process(&mut img, &palette, &args.dither);
+		}
 
 		img
 			.write(&mut writer, format)

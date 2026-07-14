@@ -35,6 +35,17 @@ mod c {
 			out: *mut MaybeUninit<u8>,
 		);
 
+		pub fn repalette_process_multisample(
+			pixels: *mut u8,
+			width: u32,
+			height: u32,
+			colors: *const u8,
+			count: usize,
+			ditherer: usize,
+			dither_ring: *mut i16,
+			conv_ring: *mut u16,
+		);
+
 		pub fn ditherer_count() -> usize;
 		pub fn ditherer_name(index: usize) -> *const c_char;
 		pub fn ditherer_display(index: usize) -> *const c_char;
@@ -113,6 +124,35 @@ pub fn process_index(img: &mut Image, palette: &Palette, ditherer: &str) -> Vec<
 	};
 
 	unsafe { out.assume_init().into() }
+}
+
+/// Multisample recolor (2x supersampled dithering): recolors `img.pixels` in place
+/// with truecolor output. Allocates the two O(W) streaming scratch rings and lets
+/// the C core fill/consume them (the dither ring is memset there; the conv ring is
+/// fully written before read), so neither is read back in Rust.
+pub fn process_multisample(img: &mut Image, palette: &Palette, ditherer: &str) {
+	// RGBA; must match CHANNELS in the C core.
+	const CHANNELS: usize = 4;
+
+	let colors = palette.as_slice();
+	let w = unsafe { usize::try_from(img.width).unwrap_unchecked() };
+
+	// Dither ring: 4 rows x (2W * CHANNELS) i16. Conv ring: 4 rows x (W * CHANNELS) u16.
+	let mut dither_ring = Box::<[i16]>::new_uninit_slice(4 * 2 * w * CHANNELS);
+	let mut conv_ring = Box::<[u16]>::new_uninit_slice(4 * w * CHANNELS);
+
+	unsafe {
+		c::repalette_process_multisample(
+			img.pixels.as_mut_ptr(),
+			img.width,
+			img.height,
+			colors.as_flattened().as_ptr(),
+			colors.len(),
+			dither_index(ditherer),
+			dither_ring.as_mut_ptr().cast(),
+			conv_ring.as_mut_ptr().cast(),
+		)
+	}
 }
 
 pub fn extract_palette(mut img: Image, count: u16, threshold: u32) -> Palette {

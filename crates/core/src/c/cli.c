@@ -58,6 +58,17 @@ void repalette_process_index(
 	recolor_index(img, pal, (Ditherer)ditherer, out);
 }
 
+void repalette_process_multisample(
+	u8* pixels, u32 width, u32 height, const u8* colors, size_t count,
+	size_t ditherer, i16* dither_ring, u16* conv_ring
+) {
+	i32 buffer[3 * 256];
+	Palette pal = build_palette(colors, count, buffer);
+
+	Image img = {.pixels = pixels, .width = width, .height = height};
+	recolor_multisample(img, pal, (Ditherer)ditherer, dither_ring, conv_ring);
+}
+
 size_t repalette_extract(
 	u8* pixels, u32 width, u32 height, size_t k, u32 threshold, float* soa,
 	u64* bins, u8* out
