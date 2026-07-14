@@ -3,13 +3,13 @@
 #include "oklab.h"
 
 typedef struct {
-	size_t offset, length;
+	u32 offset, length;
 } Range;
 
 static Oklab weighted_mean(Histogram r, Range range) {
-	size_t off = range.offset, len = range.length;
+	u32 off = range.offset, len = range.length;
 	double sw = 0, sl = 0, sa = 0, sb = 0;
-	for (size_t i = off; i < off + len; ++i) {
+	for (u32 i = off; i < off + len; ++i) {
 		double w = r.w[i];
 		sw += w;
 		sl += w * r.l[i];
@@ -32,9 +32,9 @@ static inline float linf6(const float *m) {
 }
 
 static void covariance(Histogram r, Range range, Oklab mu, float *m) {
-	size_t off = range.offset, len = range.length;
+	u32 off = range.offset, len = range.length;
 	float ll = 0, la = 0, lb = 0, aa = 0, ab = 0, bb = 0;
-	for (size_t i = off; i < off + len; ++i) {
+	for (u32 i = off; i < off + len; ++i) {
 		float w = r.w[i];
 		float dl = r.l[i] - mu.l, da = r.a[i] - mu.a, db = r.b[i] - mu.b;
 		ll += w * dl * dl;
@@ -104,7 +104,7 @@ static Eigen pca(Histogram r, Range range) {
 	return (Eigen){.eval = den > 0.0f ? num / den : 0.0f, .evec = c};
 }
 
-static inline void swap_reps(Histogram r, size_t i, size_t j) {
+static inline void swap_reps(Histogram r, u32 i, u32 j) {
 	float tl = r.l[i];
 	r.l[i] = r.l[j];
 	r.l[j] = tl;
@@ -124,19 +124,19 @@ typedef struct {
 	Oklab vec[256];
 } EigenArray;
 
-static inline void eigen_store(EigenArray *arr, size_t i, Eigen e) {
+static inline void eigen_store(EigenArray *arr, u32 i, Eigen e) {
 	arr->val[i] = e.eval;
 	arr->vec[i] = e.evec;
 }
 
-size_t extract_palette(
-	Image img, size_t k, HistogramScratch hist, Histogram reps, u8 *out
+u32 extract_palette(
+	Image img, u32 k, HistogramScratch hist, Histogram reps, u8 *out
 ) {
-	size_t P = (size_t)img.width * img.height;
+	u64 P = (u64)img.width * img.height;
 	if (P == 0) return 0;
 
 	build_hist(img, hist, &reps);
-	size_t nbins = reps.len;
+	u32 nbins = reps.len;
 	if (nbins == 0) return 0;
 
 	Range ranges[256];
@@ -144,12 +144,12 @@ size_t extract_palette(
 
 	ranges[0] = (Range){.offset = 0, .length = nbins};
 	eigen_store(&arr, 0, pca(reps, ranges[0]));
-	size_t count = 1;
+	u32 count = 1;
 
 	while (count < k) {
 		int bi = 0;
 		float bv = arr.val[0];
-		for (size_t i = 1; i < count; ++i)
+		for (u32 i = 1; i < count; ++i)
 			if (arr.val[i] > bv) {
 				bv = arr.val[i];
 				bi = i;
@@ -160,15 +160,15 @@ size_t extract_palette(
 		// whenever distinguishable colors remain.
 		if (bv <= 0.0f) break;
 
-		size_t o = ranges[bi].offset;
-		size_t ln = ranges[bi].length;
+		u32 o = ranges[bi].offset;
+		u32 ln = ranges[bi].length;
 		Oklab mu = weighted_mean(reps, ranges[bi]);
 		Oklab c = arr.vec[bi];
 
 		// Partition around the centroid plane: project onto the principal axis,
 		// negatives left, non-negatives right (Lomuto, deterministic).
-		size_t store = o;
-		for (size_t i = o; i < o + ln; ++i) {
+		u32 store = o;
+		for (u32 i = o; i < o + ln; ++i) {
 			float t = (reps.l[i] - mu.l) * c.l + (reps.a[i] - mu.a) * c.a +
 								(reps.b[i] - mu.b) * c.b;
 			if (t < 0.0f) {
@@ -176,7 +176,7 @@ size_t extract_palette(
 				store++;
 			}
 		}
-		size_t nleft = store - o;
+		u32 nleft = store - o;
 		if (nleft == 0 || nleft == ln) {
 			arr.val[bi] = 0.0f;	 // could not separate; mark unsplittable
 			continue;
@@ -189,7 +189,7 @@ size_t extract_palette(
 		count++;
 	}
 
-	for (size_t i = 0; i < count; ++i) {
+	for (u32 i = 0; i < count; ++i) {
 		oklab_to_rgb(weighted_mean(reps, ranges[i]), out + i * 3);
 	}
 

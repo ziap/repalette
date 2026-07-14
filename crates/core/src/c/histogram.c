@@ -2,18 +2,18 @@
 
 #include "oklab.h"
 
-static inline size_t digit(const u8 *px, int shift) {
-	size_t r = (px[0] >> shift) & 1;
-	size_t g = (px[1] >> shift) & 1;
-	size_t b = (px[2] >> shift) & 1;
+static inline u32 digit(const u8 *px, int shift) {
+	u32 r = (px[0] >> shift) & 1;
+	u32 g = (px[1] >> shift) & 1;
+	u32 b = (px[2] >> shift) & 1;
 	return (r << 2) | (g << 1) | b;
 }
 
-static Oklab collect_bin(const u8 *buf, size_t start, size_t end) {
-	size_t count = end - start;
+static Oklab collect_bin(const u8 *buf, u64 start, u64 end) {
+	u64 count = end - start;
 
 	uint64_t sr = 0, sg = 0, sb = 0;
-	for (size_t p = start; p < end; ++p) {
+	for (u64 p = start; p < end; ++p) {
 		const u8 *px = buf + p * CHANNELS;
 		sr += px[0];
 		sg += px[1];
@@ -27,30 +27,30 @@ static Oklab collect_bin(const u8 *buf, size_t start, size_t end) {
 }
 
 void build_hist(Image img, HistogramScratch scratch, Histogram *out) {
-	size_t P = (size_t)img.width * img.height;
+	u64 P = (u64)img.width * img.height;
 
 	__builtin_memcpy(scratch.work, img.pixels, P * CHANNELS);
 	u8 *curr = scratch.work, *next = scratch.aux;
-	size_t *bcurr = scratch.bins0;
-	size_t *bnext = scratch.bins1;
+	u64 *bcurr = scratch.bins0;
+	u64 *bnext = scratch.bins1;
 
 	bcurr[0] = 0;
 	bcurr[1] = P;
-	size_t nb = 1;
+	u32 nb = 1;
 
 	for (int level = 1; level <= 8; ++level) {
 		int shift = 8 - level;
 
-		size_t new_nb = 0;
-		for (size_t j = 0; j < nb; ++j) {
-			size_t start = bcurr[j], end = bcurr[j + 1];
-			size_t count[8] = {0};
-			for (size_t p = start; p < end; ++p) {
+		u32 new_nb = 0;
+		for (u32 j = 0; j < nb; ++j) {
+			u64 start = bcurr[j], end = bcurr[j + 1];
+			u64 count[8] = {0};
+			for (u64 p = start; p < end; ++p) {
 				count[digit(curr + p * CHANNELS, shift)]++;
 			}
 
-			size_t off[8];
-			size_t acc = start;
+			u64 off[8];
+			u64 acc = start;
 			for (int d = 0; d < 8; ++d) {
 				off[d] = acc;
 				acc += count[d];
@@ -62,10 +62,10 @@ void build_hist(Image img, HistogramScratch scratch, Histogram *out) {
 				}
 			}
 
-			size_t cur_off[8];
+			u64 cur_off[8];
 			for (int d = 0; d < 8; ++d) cur_off[d] = off[d];
-			for (size_t p = start; p < end; ++p) {
-				size_t d = digit(curr + p * CHANNELS, shift);
+			for (u64 p = start; p < end; ++p) {
+				u32 d = digit(curr + p * CHANNELS, shift);
 				__builtin_memcpy(
 					next + cur_off[d] * CHANNELS, curr + p * CHANNELS, CHANNELS
 				);
@@ -78,13 +78,13 @@ void build_hist(Image img, HistogramScratch scratch, Histogram *out) {
 		u8 *tp = curr;
 		curr = next;
 		next = tp;
-		size_t *tb = bcurr;
+		u64 *tb = bcurr;
 		bcurr = bnext;
 		bnext = tb;
 	}
 done:
 
-	for (size_t j = 0; j < nb; ++j) {
+	for (u32 j = 0; j < nb; ++j) {
 		Oklab lab = collect_bin(curr, bcurr[j], bcurr[j + 1]);
 		out->l[j] = lab.l;
 		out->a[j] = lab.a;

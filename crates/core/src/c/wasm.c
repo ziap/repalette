@@ -18,22 +18,22 @@ static void resize(size_t new_size) {
 }
 
 struct {
-	size_t size;
-	size_t capacity;
+	u32 size;
+	u32 capacity;
 
 	i32 *rs;
 	i32 *gs;
 	i32 *bs;
 } state;
 
-export size_t ditherer_count(void) { return DITHER_COUNT; }
+export u32 ditherer_count(void) { return DITHER_COUNT; }
 
 export const char *ditherer_display(Ditherer ditherer) {
 	return dither_display_names[ditherer];
 }
 
-export void palette_init(size_t capacity) {
-	size_t padded_capacity = (capacity + 3) / 4 * 4;
+export void palette_init(u32 capacity) {
+	u32 padded_capacity = (capacity + 3) / 4 * 4;
 	state.size = 0;
 	state.capacity = padded_capacity;
 
@@ -59,7 +59,7 @@ export u8 *get_pixels(u32 width, u32 height) {
 
 export void update_canvas(u32 width, u32 height, Ditherer ditherer) {
 	if (state.size == 0) return;
-	for (size_t i = state.size; i < state.capacity; ++i) {
+	for (u32 i = state.size; i < state.capacity; ++i) {
 		state.rs[i] = state.rs[state.size - 1];
 		state.gs[i] = state.gs[state.size - 1];
 		state.bs[i] = state.bs[state.size - 1];

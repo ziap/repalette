@@ -15,7 +15,7 @@ use repalette_palettes::{self as palettes};
 mod imgio;
 
 const DEFAULT_EXTRACT: u16 = 16;
-const EXTRACT_THRESHOLD: usize = 1 << 18;
+const EXTRACT_THRESHOLD: u32 = 1 << 18;
 
 fn dither_values() -> PossibleValuesParser {
 	let ditherers = repalette::get_ditherers();
