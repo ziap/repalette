@@ -6,6 +6,7 @@
 
 typedef uint8_t u8;
 typedef uint32_t u32;
+typedef uint64_t u64;
 typedef int32_t i32;
 typedef uint32_t Hex;
 
@@ -23,7 +24,7 @@ typedef struct {
 } Color;
 
 typedef struct {
-	size_t size;
+	u32 size;
 
 	const i32 *rs;
 	const i32 *gs;

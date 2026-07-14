@@ -9,20 +9,20 @@ const char* ditherer_name(size_t i) { return dither_names[i]; }
 
 const char* ditherer_display(size_t i) { return dither_display_names[i]; }
 
-static Palette build_palette(const u8* colors, size_t count, i32* buffer) {
-	size_t size = (count + 3) / 4 * 4;
+static Palette build_palette(const u8* colors, u32 count, i32* buffer) {
+	u32 size = (count + 3) / 4 * 4;
 
 	i32* rs = buffer + 0 * size;
 	i32* gs = buffer + 1 * size;
 	i32* bs = buffer + 2 * size;
 
-	for (size_t i = 0; i < count; ++i) {
+	for (u32 i = 0; i < count; ++i) {
 		rs[i] = colors[i * 3 + 0];
 		gs[i] = colors[i * 3 + 1];
 		bs[i] = colors[i * 3 + 2];
 	}
 
-	for (size_t i = count; i < size; ++i) {
+	for (u32 i = count; i < size; ++i) {
 		rs[i] = rs[count - 1];
 		gs[i] = gs[count - 1];
 		bs[i] = bs[count - 1];
@@ -59,10 +59,10 @@ void repalette_process_index(
 }
 
 size_t repalette_extract(
-	u8* pixels, u32 width, u32 height, size_t k, size_t threshold, float* soa,
-	size_t* bins, u8* pixbuf, u8* out
+	u8* pixels, u32 width, u32 height, size_t k, u32 threshold, float* soa,
+	u64* bins, u8* pixbuf, u8* out
 ) {
-	size_t P = (size_t)width * height;
+	u64 P = (u64)width * height;
 
 	HistogramScratch hist = {
 		.threshold = threshold,

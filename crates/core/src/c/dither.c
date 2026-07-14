@@ -6,7 +6,7 @@ static inline void update_pixel(
 	// A negative neighbour offset underflows u32, so a single unsigned check
 	// catches both the left (wrapped-around) and right edges.
 	if (x >= img.width) return;
-	size_t idx = CHANNELS * ((size_t)y * img.width + x);
+	u64 idx = CHANNELS * ((u64)y * img.width + x);
 
 	// One pixel is a 4-byte RGBA unit: load + widen the channels into a vector.
 	u8x4 bytes;
@@ -109,7 +109,7 @@ static i32 find_nearest(Palette palette, Color c) {
 	i32x4 vlane = {0, 1, 2, 3};
 	i32x4 vbest = vlane;
 
-	for (size_t i = 0; i < palette.size; i += 4) {
+	for (u32 i = 0; i < palette.size; i += 4) {
 		i32x4 pr, pg, pb;
 		__builtin_memcpy(&pr, &palette.rs[i], sizeof pr);
 		__builtin_memcpy(&pg, &palette.gs[i], sizeof pg);
@@ -142,8 +142,8 @@ static i32 find_nearest(Palette palette, Color c) {
 #define RECOLOR_BODY(name, WRITE)                  \
 	for (u32 y = 0; y < img.height; ++y) {           \
 		for (u32 x = 0; x < img.width; ++x) {          \
-			size_t pos = (size_t)y * img.width + x;      \
-			size_t idx = CHANNELS * pos;                 \
+			u64 pos = (u64)y * img.width + x;            \
+			u64 idx = CHANNELS * pos;                    \
                                                    \
 			Color old_color = {                          \
 				img.pixels[idx + 0],                       \

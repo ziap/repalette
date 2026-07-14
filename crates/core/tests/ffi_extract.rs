@@ -17,7 +17,7 @@ fn image(pixels: &[[u8; 3]]) -> Image {
 }
 
 fn palette(pixels: &[[u8; 3]], k: u16) -> Vec<[u8; 3]> {
-	extract_palette(&mut image(pixels), k, THRESHOLD)
+	extract_palette(&mut image(pixels), k, THRESHOLD as u32)
 		.as_slice()
 		.to_vec()
 }
