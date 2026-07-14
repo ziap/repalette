@@ -60,16 +60,12 @@ void repalette_process_index(
 
 size_t repalette_extract(
 	u8* pixels, u32 width, u32 height, size_t k, u32 threshold, float* soa,
-	u64* bins, u8* pixbuf, u8* out
+	u64* bins, u8* out
 ) {
-	u64 P = (u64)width * height;
-
 	HistogramScratch hist = {
 		.threshold = threshold,
 		.bins0 = bins,
 		.bins1 = bins + (threshold + 1),
-		.work = pixbuf,
-		.aux = pixbuf + P * CHANNELS,
 	};
 
 	Histogram reps = {
