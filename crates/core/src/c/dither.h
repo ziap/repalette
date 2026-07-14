@@ -22,6 +22,9 @@ typedef enum {
 
 extern void recolor(Image, Palette, Ditherer);
 extern void recolor_index(Image, Palette, Ditherer, u8 *out);
+extern void recolor_multisample(
+	Image, Palette, Ditherer, i16 *dither_ring, u16 *conv_ring
+);
 
 extern const char **dither_names;
 extern const char **dither_display_names;
