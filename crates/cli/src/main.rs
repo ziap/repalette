@@ -104,17 +104,17 @@ struct ApplyArgs {
 	)]
 	dither: String,
 
-	/// Multisample: dither at NxN then downsample (higher quality, truecolor output)
+	/// Multisample: dither at NxN then downsample
 	#[arg(short, long, value_name = "FACTOR")]
 	multisample: Option<Multisample>,
 }
 
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
 enum Multisample {
-	/// 2x supersampling
+	/// 2x mutlisampling
 	#[value(name = "2x")]
 	X2,
-	/// 4x supersampling
+	/// 4x multisampling
 	#[value(name = "4x")]
 	X4,
 }
