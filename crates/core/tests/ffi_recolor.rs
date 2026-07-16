@@ -11,34 +11,12 @@ fn random_colors(seed: usize, n: usize) -> Vec<[u8; 3]> {
 	const MUL: u64 = 6364136223846793005;
 	const INC: u64 = 1442695040888963407;
 
-	const fn jump_params(n: u64) -> (u64, u64) {
-		let mut result: (u64, u64) = (1, 0);
-		let mut a: (u64, u64) = (MUL, 1);
-
-		let mut b = n;
-		while b > 0 {
-			if b & 1 != 0 {
-				result = (
-					result.0.wrapping_mul(a.0),
-					result.0.wrapping_mul(a.1).wrapping_add(result.1),
-				)
-			}
-
-			a = (
-				a.0.wrapping_mul(a.0),
-				a.0.wrapping_mul(a.1).wrapping_add(a.1),
-			);
-
-			b >>= 1;
-		}
-
-		result
-	}
-
 	let mut s = INC;
-	let (mul, inc) = const { jump_params(0x9e3779b97f4a7c15) };
+
 	for _ in 0..seed {
-		s = s.wrapping_mul(mul).wrapping_add(inc)
+		const JUMP_MUL: u64 = 1981164425737358653;
+		const JUMP_INC: u64 = 9748538262566019597;
+		s = s.wrapping_mul(JUMP_MUL).wrapping_add(JUMP_INC)
 	}
 
 	let mut next = || {
