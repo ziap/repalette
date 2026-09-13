@@ -50,6 +50,8 @@
       CC_x86_64_unknown_linux_musl = cc.musl;
       CC_WASM = "${pkgs.llvmPackages.clang.cc}/bin/clang";
 
+      RUSTFLAGS="-C target-cpu=native";
+
       shellHook = ''
         # Avoid polluting home directory
         export RUSTUP_HOME=$(pwd)/.rustup/
